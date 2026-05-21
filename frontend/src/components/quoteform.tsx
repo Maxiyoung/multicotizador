@@ -4,21 +4,17 @@ import { z } from 'zod';
 import { CarFront, MapPin, Settings2, ShieldQuestion } from 'lucide-react';
 import type { QuoteInput } from '../services/api';
 
-// Esquema Zod completo que coincide exactamente con la interfaz QuoteInput
+// Esquema Zod ajustado para que TypeScript lo apruebe sin problemas
 const formSchema = z.object({
   brand: z.string().min(1, "La marca es obligatoria"),
   model: z.string().min(1, "El modelo es obligatorio"),
   version: z.string().min(1, "La versión es obligatoria"),
   postalCode: z.string().min(1, "El código postal es obligatorio"),
-  year: z.number({
-    required_error: "El año es obligatorio",
-    invalid_type_error: "El año debe ser un número válido",
-  })
+  year: z.number({ message: "El año es obligatorio y debe ser un número válido" })
     .int("Debe ser un número entero")
     .min(1990, "El año mínimo permitido es 1990")
     .max(new Date().getFullYear() + 1, "El año supera el máximo permitido"),
 });
-
 interface QuoteFormProps {
   onSubmit: (data: QuoteInput) => void;
   isLoading: boolean;
