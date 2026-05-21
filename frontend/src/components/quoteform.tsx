@@ -4,16 +4,19 @@ import { z } from 'zod';
 import { CarFront, MapPin, Settings2, ShieldQuestion } from 'lucide-react';
 import type { QuoteInput } from '../services/api';
 
-// 1. El mismo esquema que definiste en el backend para máxima consistencia
+// Esquema Zod completo que coincide exactamente con la interfaz QuoteInput
 const formSchema = z.object({
-  year: z.number({ invalid_type_error: "Debe ser un número" })
-    .int()
-    .min(1990, "Año mínimo 1990")
-    .max(new Date().getFullYear() + 1, "Año inválido"),
-  brand: z.string().min(2, "Requerido"),
-  model: z.string().min(2, "Requerido"),
-  version: z.string().min(2, "Requerido"),
-  postalCode: z.string().regex(/^\d{4,8}$/, "Código Postal inválido")
+  brand: z.string().min(1, "La marca es obligatoria"),
+  model: z.string().min(1, "El modelo es obligatorio"),
+  version: z.string().min(1, "La versión es obligatoria"),
+  postalCode: z.string().min(1, "El código postal es obligatorio"),
+  year: z.number({
+    required_error: "El año es obligatorio",
+    invalid_type_error: "El año debe ser un número válido",
+  })
+    .int("Debe ser un número entero")
+    .min(1990, "El año mínimo permitido es 1990")
+    .max(new Date().getFullYear() + 1, "El año supera el máximo permitido"),
 });
 
 interface QuoteFormProps {
@@ -71,7 +74,7 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
         <input 
           type="text" 
           {...register('brand')}
-          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+          className={`w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all ${errors.brand ? 'border-red-500 focus:ring-red-200' : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-100'}`}
           placeholder="Ej: Volkswagen"
         />
         {errors.brand && <span className="text-red-500 text-xs mt-1">{errors.brand.message}</span>}
@@ -85,7 +88,7 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
         <input 
           type="text" 
           {...register('model')}
-          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+          className={`w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all ${errors.model ? 'border-red-500 focus:ring-red-200' : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-100'}`}
           placeholder="Ej: Gol Trend"
         />
         {errors.model && <span className="text-red-500 text-xs mt-1">{errors.model.message}</span>}
@@ -99,7 +102,7 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
         <input 
           type="text" 
           {...register('version')}
-          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+          className={`w-full p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all ${errors.version ? 'border-red-500 focus:ring-red-200' : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-100'}`}
           placeholder="Ej: 1.6 MSI Trendline 5P"
         />
         {errors.version && <span className="text-red-500 text-xs mt-1">{errors.version.message}</span>}
