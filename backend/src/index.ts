@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 3000;
 
 // 1. Seguridad de Cabeceras
 app.use(helmet());
-
+// 3. Middlewares básicos
+app.use(cors());
+app.use(express.json());
 // 2. Limitador de peticiones (Rate Limit)
 // Máximo 10 cotizaciones cada 15 minutos por IP
 const limiter = rateLimit({
@@ -23,9 +25,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// 3. Middlewares básicos
-app.use(cors());
-app.use(express.json());
+
 
 // 4. Montar rutas
 app.use('/api', quoteRoutes);
