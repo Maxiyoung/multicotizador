@@ -21,7 +21,7 @@ export interface StandardQuote {
 
 // Cliente Axios apuntando a tu backend local
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'https://multicotizador-api.onrender.com',
 });
 
 export const fetchQuotes = async (data: QuoteInput): Promise<StandardQuote[]> => {
