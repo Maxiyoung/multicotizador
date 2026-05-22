@@ -15,7 +15,7 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
   }).format(quote.price);
 
   // 1. Armamos la URL directamente en el cuerpo del componente
-  const phoneNumber = '5493515449977'; // El número de tu viejo
+  const phoneNumber = '5493515449977'; // El número configurado
   const message = `¡Hola! Coticé en la web y me interesa el plan de ${quote.companyName} (${quote.planName}) por ${formattedPrice}/mes para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.year}. ¿Me pasarías más info?`;
   
   // Generamos el link listo para ser usado por la etiqueta <a>
@@ -49,12 +49,9 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
           ))}
         </ul>
 
-        {/* 2. Reemplazamos el <button> por una etiqueta <a> */}
-        {/* Usar <a> asegura que los celulares abran la app nativa sin bloquear popups */}
+        {/* 2. Etiqueta <a> limpia, SIN el target="_blank" para que funcione perfecto en celulares */}
         <a 
           href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
           className="w-full bg-whatsapp hover:bg-[#20bd5a] text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2"
         >
           <MessageCircle className="w-5 h-5" />
