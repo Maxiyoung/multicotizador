@@ -20,7 +20,7 @@ app.use(express.json());
 // Máximo 10 cotizaciones cada 15 minutos por IP
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10,
+  max: 100,
   message: { error: 'Demasiadas solicitudes de cotización. Intenta de nuevo en 15 minutos.' }
 });
 app.use('/api/', limiter);
