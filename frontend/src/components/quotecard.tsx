@@ -14,12 +14,11 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
     maximumFractionDigits: 0
   }).format(quote.price);
 
-  // 1. Armamos la URL directamente en el cuerpo del componente
   const phoneNumber = '5493515449977'; // El número configurado
   const message = `¡Hola! Coticé en la web y me interesa el plan de ${quote.companyName} (${quote.planName}) por ${formattedPrice}/mes para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.year}. ¿Me pasarías más info?`;
   
-  // Generamos el link listo para ser usado por la etiqueta <a>
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  // 1. SOLUCIÓN: Usamos la API completa y directa en lugar del acortador wa.me
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-200 transition-all overflow-hidden flex flex-col sm:flex-row mb-4">
@@ -49,9 +48,11 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
           ))}
         </ul>
 
-        {/* 2. Etiqueta <a> limpia, SIN el target="_blank" para que funcione perfecto en celulares */}
+        {/* 2. Devolvemos el target="_blank" ya que la API directa lo requiere para no romper la navegación */}
         <a 
           href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="w-full bg-whatsapp hover:bg-[#20bd5a] text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2"
         >
           <MessageCircle className="w-5 h-5" />
