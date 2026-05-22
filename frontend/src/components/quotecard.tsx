@@ -16,8 +16,17 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
 
   const phoneNumber = '5493515449977'; // El número configurado
   const message = `¡Hola! Coticé en la web y me interesa el plan de ${quote.companyName} (${quote.planName}) por ${formattedPrice}/mes para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.year}. ¿Me pasarías más info?`;
+  const encodedMessage = encodeURIComponent(message);
+
+  // 1. Detección de dispositivo (si es un celular o tablet)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   
-  const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+  // 2. Armamos la URL según dónde esté el usuario
+  // Si es celu, usamos el protocolo nativo 'whatsapp://' (infalible en Xiaomi/Chrome)
+  // Si es PC, usamos la API web estándar
+  const whatsappUrl = isMobile 
+    ? `whatsapp://send?phone=${phoneNumber}&text=${encodedMessage}`
+    : `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-200 transition-all overflow-hidden flex flex-col sm:flex-row mb-4">
@@ -47,10 +56,10 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
           ))}
         </ul>
 
-        {/* Botón con el Logo oficial de WhatsApp integrado */}
+        {/* 3. Etiqueta <a> dinámica. Si es PC abre pestaña nueva, si es celu usa la misma para no dejar pestañas vacías */}
         <a 
           href={whatsappUrl}
-          target="_blank"
+          target={isMobile ? "_self" : "_blank"}
           rel="noopener noreferrer"
           className="w-full bg-whatsapp hover:bg-[#20bd5a] text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2"
         >
