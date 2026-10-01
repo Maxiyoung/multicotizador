@@ -1,14 +1,16 @@
 // src/services/orchestrator.service.ts
 import { QuoteInput, StandardQuote } from '../interfaces/quote.interface';
-import { BaseAdapter } from '../src/adapters/base.adapter';
+import { BaseAdapter } from '../adapters/base.adapter';
 import { MercantilAdapter } from '../adapters/mercantil.adapter';
-// Importarás aquí futuros adaptadores: import { ZurichAdapter } from '../adapters/zurich.adapter';
+import { ZurichAdapter } from '../adapters/zurich.adapter';
+import { SancorAdapter } from '../adapters/sancor.adapter';
 
 export class OrchestratorService {
   // Lista de adaptadores activos en el sistema
   private adapters: BaseAdapter[] = [
     new MercantilAdapter(),
-    // new ZurichAdapter() <- Cuando lo crees, solo lo agregás acá
+    new ZurichAdapter(),
+    new SancorAdapter()
   ];
 
   async calculateAllQuotes(input: QuoteInput): Promise<StandardQuote[]> {

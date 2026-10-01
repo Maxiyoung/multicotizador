@@ -1,6 +1,6 @@
 // src/adapters/mercantil.adapter.ts
 import axios from 'axios';
-import { BaseAdapter } from './base.adapters.ts';
+import { BaseAdapter } from './base.adapter';
 import { QuoteInput, StandardQuote } from '../interfaces/quote.interface';
 
 export class MercantilAdapter extends BaseAdapter {
