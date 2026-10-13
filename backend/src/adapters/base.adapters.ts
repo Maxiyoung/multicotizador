@@ -1,10 +1,25 @@
-// src/adapters/base.adapter.ts
+import axios, { AxiosInstance } from 'axios';
+import axiosRetry from 'axios-retry';
 import { QuoteInput, StandardQuote } from '../interfaces/quote.interface';
 
 export abstract class BaseAdapter {
-  // Cada compañía debe definir su propio identificador único
   abstract readonly companyName: string;
+  protected readonly http: AxiosInstance;
 
-  // Método obligatorio que implementará la lógica de Auth + Fetch + Map
+  constructor(baseURL?: string, timeoutMs = 6000) {
+    this.http = axios.create({
+      baseURL,
+      timeout: timeoutMs,
+    });
+
+    axiosRetry(this.http, {
+      retries: 2,
+      retryDelay: axiosRetry.exponentialDelay,
+      retryCondition: (error) =>
+        axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+        (error.response?.status ? error.response.status >= 500 : false),
+    });
+  }
+
   abstract getQuote(input: QuoteInput): Promise<StandardQuote[]>;
 }

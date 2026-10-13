@@ -1,35 +1,38 @@
-// src/index.ts
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { env } from './config/env';
 import quoteRoutes from './routes/quote.routes';
 
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// 1. Seguridad de Cabeceras
+app.set('trust proxy', 1);
 app.use(helmet());
-// 3. Middlewares básicos
-app.use(cors());
+
+app.use(
+  cors({
+    origin: env.CORS_ORIGIN,
+    methods: ['GET', 'POST'],
+  })
+);
 app.use(express.json());
-// 2. Limitador de peticiones (Rate Limit)
-// Máximo 10 cotizaciones cada 15 minutos por IP
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 15 * 60 * 1000,
   max: 100,
-  message: { error: 'Demasiadas solicitudes de cotización. Intenta de nuevo en 15 minutos.' }
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes de cotización. Intenta de nuevo en 15 minutos.' },
 });
 app.use('/api/', limiter);
 
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', environment: env.NODE_ENV });
+});
 
-
-// 4. Montar rutas
 app.use('/api', quoteRoutes);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor blindado y corriendo en http://localhost:${PORT}`);
+app.listen(env.PORT, () => {
+  console.log(`[Server] Listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
 });

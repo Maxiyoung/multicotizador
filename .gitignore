@@ -5,14 +5,20 @@ backend/node_modules/
 
 # Variables de entorno (Secretos)
 .env
+.env.local
+.env.*.local
 frontend/.env
 backend/.env
 
-# Archivos de compilación
+# Archivos de compilación y caché
 dist/
 backend/dist/
 frontend/dist/
+*.tsbuildinfo
 
-# Logs y otros
+# Archivos temporales y logs
+repomix*.txt
+proyecto_completo*.txt
+*.log
 npm-debug.log*
 .DS_Store

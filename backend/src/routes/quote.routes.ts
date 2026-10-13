@@ -1,4 +1,3 @@
-// src/routes/quote.routes.ts
 import { Router } from 'express';
 import { getQuotes } from '../controllers/quote.controller';
 
