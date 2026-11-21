@@ -27,6 +27,8 @@ export const quoteInputSchema = z.object({
     .trim()
     .regex(POSTAL_CODE_REGEX, 'Código postal inválido (ej: 5000 o C1425)')
     .transform(normalizePostalCode),
+  locality: z.string().trim().min(2).max(120).optional(),
+  province: z.string().trim().min(2).max(80).optional(),
   use: z.enum(['particular', 'comercial']).default('particular'),
   hasGnc: z.boolean().default(false),
   gncValue: z.number().positive('El valor del equipo GNC debe ser mayor a 0').optional(),

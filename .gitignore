@@ -3,12 +3,13 @@ node_modules/
 frontend/node_modules/
 backend/node_modules/
 
-# Variables de entorno (Secretos)
+# Variables de entorno (Secretos) y catálogos propietarios importados
 .env
 .env.local
 .env.*.local
 frontend/.env
 backend/.env
+backend/data/
 
 # Archivos de compilación y caché
 dist/

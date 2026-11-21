@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { OrchestratorService } from '../services/orchestrator.service';
 import { quoteInputSchema } from '../schemas/quote.schema';
 import { catalogService } from '../catalog/catalog.service';
+import { postalCodesService } from '../catalog/postal-codes.service';
 import { logger } from '../lib/logger';
 
 export function createQuoteController(orchestrator: OrchestratorService) {
@@ -24,6 +25,15 @@ export function createQuoteController(orchestrator: OrchestratorService) {
         const match = await catalogService.findByInfoAutoCode(input.infoAutoCode);
         if (match) {
           input.vehicleValue = match.estimatedValue;
+        }
+      }
+
+      // Enriquecemos localidad y provincia automáticamente desde el padrón de CP argentino
+      if (!input.locality || !input.province) {
+        const cpMatches = postalCodesService.lookupByCode(input.postalCode);
+        if (cpMatches.length > 0) {
+          input.locality = input.locality ?? cpMatches[0].locality;
+          input.province = input.province ?? cpMatches[0].province;
         }
       }
 

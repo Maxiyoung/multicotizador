@@ -1,0 +1,14 @@
+{
+  "name": "segurosautoya",
+  "private": true,
+  "description": "Multicotizador de seguros automotores (backend + frontend)",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "verify": "npm --prefix backend run verify && npm --prefix frontend run verify",
+    "test": "npm --prefix backend run test",
+    "api:doctor": "npm --prefix backend run api:doctor",
+    "api:doctor:quote": "npm --prefix backend run api:doctor -- --quote-test",
+    "catalog:import": "npm --prefix backend run catalog:import --"
+  }
+}

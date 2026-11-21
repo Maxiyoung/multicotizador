@@ -1,0 +1,78 @@
+# Render Blueprint — SegurosAutoYa
+# Conectá este repo en https://dashboard.render.com/blueprints para desplegar en 1 clic.
+
+services:
+  - type: web
+    name: segurosautoya-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        sync: false # Ej: https://tu-frontend.vercel.app
+      - key: QUOTE_TIMEOUT_MS
+        value: "9000"
+      - key: QUOTE_CACHE_TTL_SEC
+        value: "300"
+
+      # --- Catálogo de Vehículos ---
+      - key: CATALOG_PROVIDER
+        value: local # Cambiar a "infoauto-api" si activás la API B2B de InfoAuto
+      - key: INFOAUTO_BASE_URL
+        value: https://api.infoauto.com.ar
+      - key: INFOAUTO_USER
+        sync: false
+      - key: INFOAUTO_PASSWORD
+        sync: false
+
+      # --- Mercantil Andina ---
+      - key: MERCANTIL_MODE
+        value: mock # Cambiar a "live" cuando cargues las credenciales
+      - key: MERCANTIL_BASE_URL
+        value: https://apidev.mercantilandina.com.ar
+      - key: MERCANTIL_AUTH_PATH
+        value: /credenciales/v2/
+      - key: MERCANTIL_QUOTE_PATH
+        sync: false
+      - key: MERCANTIL_CLIENT_ID
+        value: api-clientes-login
+      - key: MERCANTIL_USER
+        sync: false
+      - key: MERCANTIL_PASSWORD
+        sync: false
+      - key: MERCANTIL_SUBSCRIPTION_KEY
+        sync: false
+
+      # --- Grupo Sancor Seguros ---
+      - key: SANCOR_MODE
+        value: mock # Cambiar a "live" cuando cargues las credenciales
+      - key: SANCOR_BASE_URL
+        value: https://external-pre-api.gruposancorseguros.com/apissa/pre-catalog
+      - key: SANCOR_CLIENT_ID
+        sync: false
+      - key: SANCOR_USERNAME
+        sync: false
+      - key: SANCOR_PASSWORD
+        sync: false
+      - key: SANCOR_APP_CLIENT
+        value: SegurosAutoYa
+      - key: SANCOR_PRODUCER_CODE
+        value: "10001"
+      - key: SANCOR_UPPER_PRODUCER_CODE
+        value: "10000"
+      - key: SANCOR_PRODUCT_CODE
+        value: "24"
+      - key: SANCOR_VIGENCY_CODE
+        value: "1"
+      - key: SANCOR_PAYMENT_PERIODICITY_CODE
+        value: "5"
+      - key: SANCOR_POLICY_QUOTAS
+        value: "12"
+      - key: SANCOR_IVA_CONDITION_CODE
+        value: "4"

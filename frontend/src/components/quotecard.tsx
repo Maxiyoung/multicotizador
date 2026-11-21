@@ -49,10 +49,14 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
 
   const gncText = vehicleData.hasGnc ? ' (con GNC)' : '';
   const zeroKmText = vehicleData.isZeroKm ? ' [0KM]' : '';
+  const locationText =
+    vehicleData.locality && vehicleData.province
+      ? ` (${vehicleData.locality}, ${vehicleData.province})`
+      : '';
   const refText = quote.quoteReference ? ` | Ref: ${quote.quoteReference}` : '';
-  const infoAutoText = vehicleData.infoAutoCode ? ` | InfoAuto #${vehicleData.infoAutoCode}` : '';
+  const infoAutoText = vehicleData.infoAutoCode ? ` | Cód. #${vehicleData.infoAutoCode}` : '';
 
-  const message = `¡Hola! Coticé en SegurosAutoYa y me interesa contratar el plan *${quote.planName}* de *${quote.companyName}* (${formattedPrice}/mes) para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.version} (${vehicleData.year})${zeroKmText}${gncText}, CP ${vehicleData.postalCode}${infoAutoText}${refText}. ¿Me ayudás a emitirlo?`;
+  const message = `¡Hola! Coticé en SegurosAutoYa y me interesa contratar el plan *${quote.planName}* de *${quote.companyName}* (${formattedPrice}/mes) para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.version} (${vehicleData.year})${zeroKmText}${gncText}, CP ${vehicleData.postalCode}${locationText}${infoAutoText}${refText}. ¿Me ayudás a emitirlo?`;
   const encodedMessage = encodeURIComponent(message);
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { catalogService } from '../catalog/catalog.service';
+import { postalCodesService } from '../catalog/postal-codes.service';
 import { OrchestratorService } from '../services/orchestrator.service';
 
 function parseOptionalYear(raw: unknown): number | undefined {
@@ -10,11 +11,28 @@ function parseOptionalYear(raw: unknown): number | undefined {
     : undefined;
 }
 
+function parseLimit(raw: unknown, fallback = 12, max = 30): number {
+  if (typeof raw !== 'string' || !raw.trim()) return fallback;
+  const num = Number(raw);
+  if (!Number.isInteger(num) || num < 1) return fallback;
+  return Math.min(num, max);
+}
+
 export function createCatalogControllers(orchestrator: OrchestratorService) {
   return {
-    getMeta: (_req: Request, res: Response) => {
+    getMeta: async (_req: Request, res: Response) => {
+      const [vehicleStats, postalStats] = await Promise.all([
+        catalogService.getStats(),
+        Promise.resolve(postalCodesService.getStats()),
+      ]);
+
       res.json({
         catalogProvider: catalogService.providerName,
+        codeOrigin: vehicleStats.codeOrigin,
+        vehiclesCount: vehicleStats.vehiclesCount,
+        brandsCount: vehicleStats.brandsCount,
+        postalCodesCount: postalStats.postalCodesCount,
+        provincesCount: postalStats.provincesCount,
         yearRange: catalogService.getYearRange(),
         activeProviders: orchestrator.getEnabledProviders(),
       });
@@ -47,6 +65,50 @@ export function createCatalogControllers(orchestrator: OrchestratorService) {
       const year = parseOptionalYear(req.query.year);
       const versions = await catalogService.getVersions(brand, model, year);
       res.json({ versions });
+    },
+
+    searchVehicles: async (req: Request, res: Response) => {
+      const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      if (q.length < 2) {
+        res.json({ results: [] });
+        return;
+      }
+      const year = parseOptionalYear(req.query.year);
+      const limit = parseLimit(req.query.limit, 12, 30);
+      const results = await catalogService.search(q, year, limit);
+      res.json({ results });
+    },
+
+    searchPostalCodes: (req: Request, res: Response) => {
+      const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      if (q.length < 2) {
+        res.json({ results: [] });
+        return;
+      }
+      const limit = parseLimit(req.query.limit, 10, 25);
+      const results = postalCodesService.search(q, limit);
+      res.json({ results });
+    },
+
+    lookupPostalCode: (req: Request, res: Response) => {
+      const cpParam = typeof req.params.cp === 'string' ? req.params.cp : '';
+      const results = postalCodesService.lookupByCode(cpParam);
+      if (results.length === 0) {
+        res.status(404).json({
+          found: false,
+          postalCode: cpParam,
+          results: [],
+          error: 'No encontramos ese código postal en el padrón argentino.',
+        });
+        return;
+      }
+
+      res.json({
+        found: true,
+        postalCode: results[0].postalCode,
+        primary: results[0],
+        results,
+      });
     },
   };
 }

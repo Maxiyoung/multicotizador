@@ -32,6 +32,16 @@ describe('env validation', () => {
     ).toThrow(/SANCOR_CLIENT_ID/);
   });
 
+  it('falla al arrancar si CATALOG_PROVIDER=infoauto-api y faltan credenciales', () => {
+    expect(() =>
+      parseEnv({
+        CATALOG_PROVIDER: 'infoauto-api',
+        MERCANTIL_MODE: 'mock',
+        SANCOR_MODE: 'mock',
+      })
+    ).toThrow(/INFOAUTO_USER/);
+  });
+
   it('parsea múltiples orígenes CORS separados por coma', () => {
     expect(getCorsOrigins('http://localhost:5173, https://segurosautoya.com.ar ')).toEqual([
       'http://localhost:5173',

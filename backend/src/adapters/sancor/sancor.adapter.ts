@@ -4,7 +4,7 @@ import { BaseAdapter, QuoteExecutionOptions } from '../base.adapter';
 import { QuoteInput, QuoteSource, StandardQuote } from '../../interfaces/quote.interface';
 import { SancorConfig } from '../../config/insurers';
 import { TokenManager } from '../../lib/token-manager';
-import { logger } from '../../lib/logger';
+import { logger, sanitizeError } from '../../lib/logger';
 import {
   SancorTokenRequest,
   SancorTokenResponse,
@@ -89,6 +89,28 @@ export class SancorAdapter extends BaseAdapter {
         return this.requestLiveQuotes(input, options, true);
       }
       throw error;
+    }
+  }
+
+  async verifyAuth(): Promise<{ ok: boolean; latencyMs: number; message: string }> {
+    if (this.mode === 'mock') {
+      return { ok: true, latencyMs: 0, message: 'Modo mock activo (sin llamada externa).' };
+    }
+    const startedAt = Date.now();
+    try {
+      await this.tokenManager.getToken(true);
+      return {
+        ok: true,
+        latencyMs: Date.now() - startedAt,
+        message: `Autenticación Auth0 exitosa (/v2/security/auth0/token). Productor #${this.config.producerCode}.`,
+      };
+    } catch (error) {
+      const safe = sanitizeError(error);
+      return {
+        ok: false,
+        latencyMs: Date.now() - startedAt,
+        message: `Error de autenticación (${safe.status ?? safe.code ?? 'red'}): ${safe.message}`,
+      };
     }
   }
 

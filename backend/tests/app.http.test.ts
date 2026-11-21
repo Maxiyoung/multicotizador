@@ -55,6 +55,23 @@ describe('HTTP API integration', () => {
     expect(versions.length).toBeGreaterThan(0);
     expect(versions[0].infoAutoCode).toMatch(/^\d{4,10}$/);
     expect(versions[0].estimatedValue).toBeGreaterThan(0);
+
+    const searchRes = await fetch(`${baseUrl}/api/catalog/search?q=hilux&year=2023`);
+    expect(searchRes.status).toBe(200);
+    const { results: vehicleResults } = (await searchRes.json()) as {
+      results: Array<{ brand: string; model: string; infoAutoCode: string }>;
+    };
+    expect(vehicleResults.length).toBeGreaterThan(0);
+    expect(vehicleResults[0].brand).toBe('Toyota');
+
+    const cpRes = await fetch(`${baseUrl}/api/catalog/postal-codes/5000`);
+    expect(cpRes.status).toBe(200);
+    const cpBody = (await cpRes.json()) as {
+      found: boolean;
+      primary: { locality: string; province: string };
+    };
+    expect(cpBody.found).toBe(true);
+    expect(cpBody.primary.locality).toBe('Córdoba');
   });
 
   it('cotiza en ambas aseguradoras y devuelve planes ordenados por precio', async () => {

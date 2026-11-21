@@ -4,6 +4,9 @@ import { z } from 'zod';
 export const adapterModeSchema = z.enum(['mock', 'live', 'off']);
 export type AdapterMode = z.infer<typeof adapterModeSchema>;
 
+export const catalogProviderModeSchema = z.enum(['local', 'infoauto-api']);
+export type CatalogProviderMode = z.infer<typeof catalogProviderModeSchema>;
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -11,6 +14,15 @@ const envSchema = z
     CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
     QUOTE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(9000),
     QUOTE_CACHE_TTL_SEC: z.coerce.number().int().min(0).max(3600).default(300),
+
+    // Catálogo de vehículos (local con JSON importado/semilla o InfoAuto API oficial)
+    CATALOG_PROVIDER: catalogProviderModeSchema.default('local'),
+    CATALOG_FILE_PATH: z.string().optional().default(''),
+    INFOAUTO_BASE_URL: z.string().url().default('https://api.infoauto.com.ar'),
+    INFOAUTO_AUTH_PATH: z.string().default('/cars/auth/login'),
+    INFOAUTO_VEHICLES_PATH: z.string().default('/cars/pub/models'),
+    INFOAUTO_USER: z.string().optional().default(''),
+    INFOAUTO_PASSWORD: z.string().optional().default(''),
 
     // Mercantil Andina
     MERCANTIL_MODE: adapterModeSchema.default('mock'),
@@ -42,6 +54,19 @@ const envSchema = z
     SANCOR_IVA_CONDITION_CODE: z.coerce.number().int().min(1).max(8).default(4),
   })
   .superRefine((data, ctx) => {
+    if (data.CATALOG_PROVIDER === 'infoauto-api') {
+      const required: Array<keyof typeof data> = ['INFOAUTO_USER', 'INFOAUTO_PASSWORD'];
+      for (const key of required) {
+        if (!data[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `${key} es obligatorio cuando CATALOG_PROVIDER=infoauto-api`,
+          });
+        }
+      }
+    }
+
     if (data.MERCANTIL_MODE === 'live') {
       const required: Array<keyof typeof data> = [
         'MERCANTIL_USER',

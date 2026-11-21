@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -16,11 +16,19 @@ import {
   Lock,
   BadgeCheck,
   PencilLine,
+  Search,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   fetchBrands,
   fetchModels,
   fetchVersions,
+  lookupPostalCode,
+  searchPostalCodes,
+  searchVehicles,
+  type CodeOrigin,
+  type PostalCodeEntry,
   type QuoteInput,
   type VehicleVersionOption,
 } from '../services/api';
@@ -42,6 +50,8 @@ const formSchema = z.object({
     .string()
     .trim()
     .regex(/^[A-Za-z]?\d{4}[A-Za-z]{0,3}$/, 'CP inválido (ej: 5000 o C1425)'),
+  locality: z.string().optional(),
+  province: z.string().optional(),
   use: z.enum(['particular', 'comercial']),
   hasGnc: z.boolean(),
   gncValue: z.number().positive('Valor de GNC inválido').optional(),
@@ -63,8 +73,26 @@ const formatArs = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
   const [manualMode, setManualMode] = useState(false);
+  const [selectedCodeOrigin, setSelectedCodeOrigin] = useState<CodeOrigin>('seed');
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [showVehicleResults, setShowVehicleResults] = useState(false);
+
+  const [cpSearchInput, setCpSearchInput] = useState('5000');
+  const [showCpDropdown, setShowCpDropdown] = useState(false);
+
+  const debouncedVehicleSearch = useDebouncedValue(vehicleSearch.trim(), 220);
+  const debouncedCpSearch = useDebouncedValue(cpSearchInput.trim(), 220);
 
   const {
     register,
@@ -82,6 +110,8 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
       infoAutoCode: undefined,
       vehicleValue: undefined,
       postalCode: '5000',
+      locality: 'Córdoba',
+      province: 'Córdoba',
       use: 'particular',
       hasGnc: false,
       gncValue: undefined,
@@ -95,6 +125,9 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
   const selectedModel = useWatch({ control, name: 'model' });
   const selectedInfoAutoCode = useWatch({ control, name: 'infoAutoCode' });
   const selectedVehicleValue = useWatch({ control, name: 'vehicleValue' });
+  const selectedPostalCode = useWatch({ control, name: 'postalCode' });
+  const selectedLocality = useWatch({ control, name: 'locality' });
+  const selectedProvince = useWatch({ control, name: 'province' });
   const hasGnc = useWatch({ control, name: 'hasGnc' });
   const isZeroKm = useWatch({ control, name: 'isZeroKm' });
   const hasGarage = useWatch({ control, name: 'hasGarage' });
@@ -137,11 +170,35 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
     retry: 1,
   });
 
+  const quickSearchQuery = useQuery({
+    queryKey: ['catalog', 'search', debouncedVehicleSearch],
+    queryFn: () => searchVehicles(debouncedVehicleSearch),
+    enabled: !manualMode && debouncedVehicleSearch.length >= 2,
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  });
+
+  const cpPatternValid = /^[A-Za-z]?\d{4}[A-Za-z]{0,3}$/.test(selectedPostalCode.trim());
+  const cpLookupQuery = useQuery({
+    queryKey: ['catalog', 'cp-lookup', selectedPostalCode.trim()],
+    queryFn: () => lookupPostalCode(selectedPostalCode.trim()),
+    enabled: cpPatternValid,
+    staleTime: 30 * 60 * 1000,
+    retry: 0,
+  });
+
+  const cpSearchQuery = useQuery({
+    queryKey: ['catalog', 'cp-search', debouncedCpSearch],
+    queryFn: () => searchPostalCodes(debouncedCpSearch),
+    enabled: showCpDropdown && debouncedCpSearch.length >= 2,
+    staleTime: 10 * 60 * 1000,
+    retry: 0,
+  });
+
   const brands = brandsQuery.data ?? [];
   const models = modelsQuery.data ?? [];
   const versions = versionsQuery.data ?? [];
 
-  // Si el catálogo no cubre el año elegido o no está disponible, habilitamos carga manual
   const effectiveManualMode =
     manualMode || brandsQuery.isError || (brandsQuery.isSuccess && brands.length === 0);
 
@@ -171,10 +228,25 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
     setValue('vehicleValue', undefined);
   };
 
+  const applyCatalogVehicle = (picked: VehicleVersionOption) => {
+    // Ajustamos año si el año actual no cae dentro del rango de comercialización del vehículo
+    const targetYear =
+      selectedYear >= picked.yearFrom && selectedYear <= picked.yearTo
+        ? selectedYear
+        : Math.min(picked.yearTo, CURRENT_YEAR);
+
+    setManualMode(false);
+    setValue('year', targetYear, { shouldValidate: true });
+    setValue('brand', picked.brand, { shouldValidate: true });
+    setValue('model', picked.model, { shouldValidate: true });
+    setValue('version', picked.version, { shouldValidate: true });
+    setValue('infoAutoCode', picked.infoAutoCode);
+    setValue('vehicleValue', picked.estimatedValue);
+    setSelectedCodeOrigin(picked.codeOrigin);
+  };
+
   const handleVersionSelect = (infoAutoCode: string) => {
-    const picked: VehicleVersionOption | undefined = versions.find(
-      (v) => v.infoAutoCode === infoAutoCode
-    );
+    const picked = versions.find((v) => v.infoAutoCode === infoAutoCode);
     if (!picked) {
       setValue('version', '');
       setValue('infoAutoCode', undefined);
@@ -185,11 +257,29 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
     setValue('version', picked.version, { shouldValidate: true });
     setValue('infoAutoCode', picked.infoAutoCode);
     setValue('vehicleValue', picked.estimatedValue);
+    setSelectedCodeOrigin(picked.codeOrigin);
+  };
+
+  const handleCpInputChange = (val: string) => {
+    setCpSearchInput(val);
+    setShowCpDropdown(true);
+    setValue('postalCode', val, { shouldValidate: /^[A-Za-z]?\d{4}[A-Za-z]{0,3}$/.test(val.trim()) });
+    setValue('locality', undefined);
+    setValue('province', undefined);
+  };
+
+  const handleCpPick = (entry: PostalCodeEntry) => {
+    setCpSearchInput(entry.postalCode);
+    setShowCpDropdown(false);
+    setValue('postalCode', entry.postalCode, { shouldValidate: true });
+    setValue('locality', entry.locality);
+    setValue('province', entry.province);
   };
 
   const toggleManualMode = () => {
     const nextManual = !manualMode;
     setManualMode(nextManual);
+    setVehicleSearch('');
     setValue('brand', '');
     setValue('model', '');
     setValue('version', '');
@@ -197,10 +287,17 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
     setValue('vehicleValue', undefined);
   };
 
+  const resolvedLocality =
+    selectedLocality ?? (cpLookupQuery.data?.found ? cpLookupQuery.data.primary?.locality : undefined);
+  const resolvedProvince =
+    selectedProvince ?? (cpLookupQuery.data?.found ? cpLookupQuery.data.primary?.province : undefined);
+
   const handleFormSubmit = (values: FormValues) => {
     onSubmit({
       ...values,
       infoAutoCode: values.infoAutoCode || undefined,
+      locality: resolvedLocality || undefined,
+      province: resolvedProvince || undefined,
       vehicleValue:
         typeof values.vehicleValue === 'number' && !Number.isNaN(values.vehicleValue)
           ? values.vehicleValue
@@ -221,8 +318,8 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      {/* Fila 1: Año y Código Postal */}
-      <div className="grid grid-cols-2 gap-3.5">
+      {/* Fila 1: Año y Código Postal / Localidad */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
             Año
@@ -248,32 +345,73 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
           )}
         </div>
 
-        <div>
+        <div className="relative">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-            Código Postal
+            Código Postal o Localidad
           </label>
           <div className="relative">
             <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              {...register('postalCode')}
+              value={cpSearchInput}
+              onChange={(e) => handleCpInputChange(e.target.value)}
+              onFocus={() => setShowCpDropdown(true)}
+              onBlur={() => setTimeout(() => setShowCpDropdown(false), 160)}
               className={`${inputBase} ${errors.postalCode ? inputError : inputNormal}`}
-              placeholder="Ej: 5000 o C1425"
+              placeholder="Ej: 5000, C1425 o Rosario"
+              autoComplete="off"
             />
           </div>
-          {errors.postalCode && (
+
+          {/* Dropdown de autocompletado de localidades AR */}
+          {showCpDropdown && (cpSearchQuery.data?.length ?? 0) > 0 && (
+            <ul className="absolute z-40 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto divide-y divide-slate-100">
+              {cpSearchQuery.data!.map((entry, idx) => (
+                <li key={`${entry.postalCode}-${entry.province}-${idx}`}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleCpPick(entry);
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                  >
+                    <span className="text-xs font-semibold text-slate-800 truncate">
+                      {entry.locality}{' '}
+                      <span className="font-normal text-slate-500">· {entry.province}</span>
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">
+                      {entry.postalCode}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {errors.postalCode ? (
             <span className="text-red-600 text-xs font-medium mt-1 block">
               {errors.postalCode.message}
             </span>
-          )}
+          ) : resolvedLocality && resolvedProvince ? (
+            <span className="text-emerald-700 text-[11px] font-medium mt-1 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              {resolvedLocality}, {resolvedProvince}
+            </span>
+          ) : cpPatternValid && cpLookupQuery.isSuccess && !cpLookupQuery.data.found ? (
+            <span className="text-amber-700 text-[11px] font-medium mt-1 flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              CP no encontrado en padrón AR (buscá por ciudad)
+            </span>
+          ) : null}
         </div>
       </div>
 
-      {/* Selector de Vehículo: Catálogo InfoAuto o Carga Manual */}
-      <div className="space-y-3.5">
+      {/* Selector de Vehículo: Buscador rápido + Catálogo encadenado o Manual */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            {effectiveManualMode ? 'Vehículo (carga manual)' : 'Vehículo (catálogo homologado)'}
+            {effectiveManualMode ? 'Vehículo (carga manual)' : 'Vehículo (catálogo InfoAuto)'}
           </span>
           <button
             type="button"
@@ -287,6 +425,66 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
 
         {!effectiveManualMode ? (
           <>
+            {/* Buscador instantáneo por modelo o código InfoAuto */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={vehicleSearch}
+                onChange={(e) => {
+                  setVehicleSearch(e.target.value);
+                  setShowVehicleResults(true);
+                }}
+                onFocus={() => setShowVehicleResults(true)}
+                onBlur={() => setTimeout(() => setShowVehicleResults(false), 160)}
+                placeholder="Búsqueda rápida: ej. Cronos, Hilux 4x4 o código InfoAuto..."
+                className="w-full pl-10 pr-3.5 py-2 bg-blue-50/40 hover:bg-blue-50/70 focus:bg-white border border-blue-200/80 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+              />
+
+              {showVehicleResults && debouncedVehicleSearch.length >= 2 && (
+                <div className="absolute z-40 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                  {quickSearchQuery.isLoading ? (
+                    <div className="p-3 text-xs text-slate-500 text-center">Buscando...</div>
+                  ) : (quickSearchQuery.data?.length ?? 0) > 0 ? (
+                    <ul className="divide-y divide-slate-100">
+                      {quickSearchQuery.data!.map((item) => (
+                        <li key={item.infoAutoCode}>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applyCatalogVehicle(item);
+                              setVehicleSearch('');
+                              setShowVehicleResults(false);
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 hover:bg-blue-50 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <span className="block text-xs font-bold text-slate-900 truncate">
+                                {item.brand} {item.model}{' '}
+                                <span className="font-medium text-slate-600">{item.version}</span>
+                              </span>
+                              <span className="block text-[10px] text-slate-400">
+                                Años {item.yearFrom}–{Math.min(item.yearTo, CURRENT_YEAR)} ·{' '}
+                                {item.fuel}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded shrink-0">
+                              #{item.infoAutoCode}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-3 text-xs text-slate-500 text-center">
+                      Sin resultados para &ldquo;{debouncedVehicleSearch}&rdquo;. Podés usar carga manual.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Marca (catálogo) */}
             <div>
               <div className="relative">
@@ -377,12 +575,14 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
               </div>
             </div>
 
-            {/* Badge de verificación InfoAuto + Suma Asegurada de referencia */}
+            {/* Badge transparente de origen InfoAuto + Suma Asegurada de referencia */}
             {selectedInfoAutoCode && (
-              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-50/70 border border-blue-200/70 text-xs text-blue-900">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-50/70 border border-blue-200/70 text-xs text-blue-900 flex-wrap">
                 <span className="flex items-center gap-1.5 font-semibold">
                   <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                  InfoAuto #{selectedInfoAutoCode}
+                  {selectedCodeOrigin === 'infoauto'
+                    ? `InfoAuto oficial #${selectedInfoAutoCode}`
+                    : `Cód. catálogo ref. #${selectedInfoAutoCode} (demo)`}
                 </span>
                 {selectedVehicleValue && (
                   <span className="text-blue-700 font-medium">

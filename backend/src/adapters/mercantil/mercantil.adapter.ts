@@ -3,7 +3,7 @@ import { BaseAdapter, QuoteExecutionOptions } from '../base.adapter';
 import { QuoteInput, QuoteSource, StandardQuote } from '../../interfaces/quote.interface';
 import { MercantilConfig } from '../../config/insurers';
 import { TokenManager } from '../../lib/token-manager';
-import { logger } from '../../lib/logger';
+import { logger, sanitizeError } from '../../lib/logger';
 import { buildMercantilMockQuotes } from './mercantil.mock';
 import {
   buildMercantilQuoteRequest,
@@ -92,6 +92,31 @@ export class MercantilAdapter extends BaseAdapter {
         return this.requestLiveQuotes(input, options, true);
       }
       throw error;
+    }
+  }
+
+  async verifyAuth(): Promise<{ ok: boolean; latencyMs: number; message: string }> {
+    if (this.mode === 'mock') {
+      return { ok: true, latencyMs: 0, message: 'Modo mock activo (sin llamada externa).' };
+    }
+    const startedAt = Date.now();
+    try {
+      await this.tokenManager.getToken(true);
+      const quotePathNote = this.config.quotePath
+        ? `Endpoint cotización: ${this.config.quotePath}`
+        : 'Login OK, falta configurar MERCANTIL_QUOTE_PATH';
+      return {
+        ok: true,
+        latencyMs: Date.now() - startedAt,
+        message: `Autenticación OAuth2 exitosa (${this.config.authPath}). ${quotePathNote}.`,
+      };
+    } catch (error) {
+      const safe = sanitizeError(error);
+      return {
+        ok: false,
+        latencyMs: Date.now() - startedAt,
+        message: `Error de autenticación (${safe.status ?? safe.code ?? 'red'}): ${safe.message}`,
+      };
     }
   }
 

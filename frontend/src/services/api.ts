@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export type PlanCategory = 'RC' | 'TERCEROS_COMPLETO' | 'TODO_RIESGO';
 export type QuoteSource = 'live' | 'mock';
+export type CodeOrigin = 'seed' | 'infoauto';
 
 export interface QuoteInput {
   year: number;
@@ -11,6 +12,8 @@ export interface QuoteInput {
   infoAutoCode?: string;
   vehicleValue?: number;
   postalCode: string;
+  locality?: string;
+  province?: string;
   use: 'particular' | 'comercial';
   hasGnc: boolean;
   gncValue?: number;
@@ -63,10 +66,31 @@ export interface VehicleVersionOption {
   yearTo: number;
   estimatedValue: number;
   bodyType: 'sedan' | 'hatchback' | 'suv' | 'pickup' | 'utilitario';
+  fuel: 'nafta' | 'diesel' | 'hibrido' | 'gnc' | 'electrico';
+  codeOrigin: CodeOrigin;
+}
+
+export interface PostalCodeEntry {
+  postalCode: string;
+  locality: string;
+  province: string;
+  aliases?: string[];
+}
+
+export interface PostalCodeLookupResponse {
+  found: boolean;
+  postalCode: string;
+  primary?: PostalCodeEntry;
+  results: PostalCodeEntry[];
 }
 
 export interface CatalogMeta {
   catalogProvider: string;
+  codeOrigin: CodeOrigin;
+  vehiclesCount: number;
+  brandsCount: number;
+  postalCodesCount: number;
+  provincesCount: number;
   yearRange: { minYear: number; maxYear: number };
   activeProviders: Array<{
     companyId: string;
@@ -152,6 +176,37 @@ export const fetchVersions = async (
     params: { brand, model, ...(year ? { year } : {}) },
   });
   return response.data.versions;
+};
+
+export const searchVehicles = async (
+  query: string,
+  year?: number
+): Promise<VehicleVersionOption[]> => {
+  const response = await api.get<{ results: VehicleVersionOption[] }>('/catalog/search', {
+    params: { q: query, ...(year ? { year } : {}), limit: 8 },
+  });
+  return response.data.results;
+};
+
+export const searchPostalCodes = async (query: string): Promise<PostalCodeEntry[]> => {
+  const response = await api.get<{ results: PostalCodeEntry[] }>('/catalog/postal-codes', {
+    params: { q: query, limit: 8 },
+  });
+  return response.data.results;
+};
+
+export const lookupPostalCode = async (cp: string): Promise<PostalCodeLookupResponse> => {
+  try {
+    const response = await api.get<PostalCodeLookupResponse>(
+      `/catalog/postal-codes/${encodeURIComponent(cp)}`
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return { found: false, postalCode: cp, results: [] };
+    }
+    throw error;
+  }
 };
 
 export const fetchQuotes = async (data: QuoteInput): Promise<QuoteResponse> => {

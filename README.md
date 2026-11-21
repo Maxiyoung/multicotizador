@@ -22,12 +22,28 @@ Plataforma web full-stack para cotización y comparación de seguros automotores
 ## Endpoints del Backend
 
 - `GET /api/health` — estado del servidor y proveedores habilitados (`mock`/`live`).
-- `GET /api/catalog/meta` — rango de años y aseguradoras activas.
-- `GET /api/catalog/brands?year=2022` — marcas disponibles.
+- `GET /api/catalog/meta` — origen de códigos (`seed` / `infoauto`), totales del catálogo y aseguradoras activas.
+- `GET /api/catalog/brands?year=2022` — marcas disponibles (26 marcas, 204 versiones semilla AR).
 - `GET /api/catalog/models?brand=Toyota&year=2022` — modelos disponibles.
 - `GET /api/catalog/versions?brand=Toyota&model=Corolla&year=2022` — versiones con `infoAutoCode` y valor sugerido.
-- `POST /api/quotes` — cotización multicompany normalizada.
+- `GET /api/catalog/search?q=hilux+4x4&year=2023` — búsqueda instantánea por texto o código InfoAuto.
+- `GET /api/catalog/postal-codes/:cp` — resolución de CP/CPA argentino (2.288 códigos postales en las 24 jurisdicciones).
+- `GET /api/catalog/postal-codes?q=rosario` — autocompletado por localidad, provincia o CP.
+- `POST /api/quotes` — cotización multicompañía normalizada.
 - `POST /api/leads` — registro liviano de intención comercial al abrir WhatsApp.
+
+## Carga de Códigos InfoAuto Oficiales
+
+Los códigos `CODIA` oficiales de InfoAuto requieren suscripción comercial; el catálogo incluido (`src/catalog/data/vehicles-ar.json`) usa códigos de referencia (`codeOrigin: "seed"`) para desarrollo y demos. Cuando cuentes con la tabla oficial o credenciales de InfoAuto tenés 2 opciones sin tocar código:
+
+1. **Importar archivo CSV/JSON oficial (InfoAuto o export de aseguradora):**
+   ```bash
+   cd backend
+   npm run catalog:import -- ./ruta/al/infoauto.csv
+   ```
+   Genera `backend/data/vehicles.infoauto.json` (ignorado en `.gitignore`) con `codeOrigin: "infoauto"` y el backend lo carga automáticamente al iniciar.
+2. **Conectar la API B2B de InfoAuto en vivo:**
+   Configurá `CATALOG_PROVIDER=infoauto-api`, `INFOAUTO_BASE_URL`, `INFOAUTO_USER` e `INFOAUTO_PASSWORD` en `backend/.env`.
 
 ## Puesta en Marcha Local
 
@@ -45,21 +61,19 @@ npm install
 npm run dev
 ```
 
-## Verificación Completa
+## Verificación y Diagnóstico
 
 ```bash
-# Backend (typecheck + 22 tests Vitest + build)
-cd backend && npm run verify
+# Desde la raíz de multi/ — verifica backend + frontend completos
+npm run verify
 
-# Frontend (typecheck + eslint + build)
-cd frontend && npm run verify
+# Diagnóstico rápido de variables, catálogo y conexión a APIs
+npm run api:doctor
+
+# Diagnóstico + prueba de cotización real/mock end-to-end
+npm run api:doctor:quote
 ```
 
-## Activación de APIs Reales (`mock` -> `live`)
+## Deploy y Activación de APIs Reales (`mock` -> `live`)
 
-El servidor valida las variables al arrancar (`src/config/env.ts`) y bloquea el inicio si activás un proveedor en `live` sin credenciales completas.
-
-1. **Grupo Sancor Seguros** (integración completa según Swagger `TokenGenerator-V2` + `Cotización Automotores`):
-   - Configurá en `backend/.env`: `SANCOR_MODE=live`, `SANCOR_BASE_URL`, `SANCOR_CLIENT_ID`, `SANCOR_USERNAME`, `SANCOR_PASSWORD`, `SANCOR_APP_CLIENT`, `SANCOR_PRODUCER_CODE` y `SANCOR_UPPER_PRODUCER_CODE`.
-2. **Mercantil Andina** (login OAuth2 en `/credenciales/v2/` ya conectado):
-   - Configurá en `backend/.env`: `MERCANTIL_MODE=live`, `MERCANTIL_BASE_URL`, `MERCANTIL_USER`, `MERCANTIL_PASSWORD`, `MERCANTIL_SUBSCRIPTION_KEY` y `MERCANTIL_QUOTE_PATH` (una vez descargado el Swagger de cotización del portal), ajustando `src/adapters/mercantil/mercantil.mapper.ts` a los nombres exactos de campos del Swagger.
+Consultá la guía paso a paso en **[DEPLOY_Y_APIS.md](./DEPLOY_Y_APIS.md)** (incluye Blueprint de Render `render.yaml`, configuración de Vercel `frontend/vercel.json`, `backend/Dockerfile` y workflow de GitHub Actions `.github/workflows/ci.yml`).
