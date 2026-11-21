@@ -55,6 +55,8 @@ multi/
 │   │   │   ├── data/               # vehicles-ar.json (204) + postal-codes-ar.json (2.413)
 │   │   │   ├── local-catalog.provider.ts
 │   │   │   ├── infoauto-api.provider.ts
+│   │   │   ├── vehicle-matcher.ts  # Motor de mapeo fuzzy, alias AR y score de confianza
+│   │   │   ├── vehicle-homologation.ts # Puente opcional infoAutoCode -> código por aseguradora
 │   │   │   ├── postal-codes.service.ts
 │   │   │   └── import-infoauto.ts  # CLI para importar tablas CSV/JSON oficiales
 │   │   ├── adapters/

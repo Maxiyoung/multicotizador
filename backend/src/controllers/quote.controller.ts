@@ -20,8 +20,25 @@ export function createQuoteController(orchestrator: OrchestratorService) {
     try {
       const input = { ...parsed.data };
 
-      // Si el usuario eligió un código InfoAuto del catálogo pero no envió valor, lo completamos ajustado al año
-      if (input.infoAutoCode && !input.vehicleValue) {
+      // 1. Si no vino infoAutoCode (carga manual o bot), intentamos resolverlo automáticamente
+      if (!input.infoAutoCode) {
+        const resolution = await catalogService.resolveVehicle({
+          brand: input.brand,
+          model: input.model,
+          version: input.version,
+          year: input.year,
+        });
+        if (resolution.resolved && resolution.bestMatch) {
+          input.infoAutoCode = resolution.bestMatch.infoAutoCode;
+          input.vehicleValue = input.vehicleValue ?? resolution.bestMatch.estimatedValue;
+          logger.info('quote.vehicle_auto_resolved', {
+            infoAutoCode: resolution.bestMatch.infoAutoCode,
+            confidence: resolution.confidence,
+            codeOrigin: resolution.bestMatch.codeOrigin,
+          });
+        }
+      } else if (!input.vehicleValue) {
+        // 2. Si vino código InfoAuto del catálogo pero no valor, completamos valuación ajustada al año
         const match = await catalogService.findByInfoAutoCode(input.infoAutoCode, input.year);
         if (match) {
           input.vehicleValue = match.estimatedValue;

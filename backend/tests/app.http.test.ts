@@ -72,6 +72,24 @@ describe('HTTP API integration', () => {
     };
     expect(cpBody.found).toBe(true);
     expect(cpBody.primary.locality).toBe('Córdoba');
+
+    const resolveRes = await fetch(`${baseUrl}/api/catalog/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        brand: 'VW',
+        model: 'Gol Trend',
+        version: '1.6 Trendline',
+        year: 2020,
+      }),
+    });
+    expect(resolveRes.status).toBe(200);
+    const resolveBody = (await resolveRes.json()) as {
+      resolved: boolean;
+      bestMatch: { infoAutoCode: string } | null;
+    };
+    expect(resolveBody.resolved).toBe(true);
+    expect(resolveBody.bestMatch?.infoAutoCode).toBe('460412');
   });
 
   it('cotiza en ambas aseguradoras y devuelve planes ordenados por precio', async () => {

@@ -1,4 +1,5 @@
 import { PlanCategory, QuoteInput, StandardQuote } from '../../interfaces/quote.interface';
+import { vehicleHomologator } from '../../catalog/vehicle-homologation';
 
 export interface MercantilRawPlan {
   codigo?: string | number;
@@ -36,7 +37,7 @@ export function classifyMercantilPlan(name: string): PlanCategory {
 export function buildMercantilQuoteRequest(input: QuoteInput): Record<string, unknown> {
   return {
     anio: input.year,
-    codigoInfoAuto: input.infoAutoCode,
+    codigoInfoAuto: vehicleHomologator.resolveForInsurer('mercantil-andina', input.infoAutoCode),
     marca: input.brand,
     modelo: input.model,
     version: input.version,

@@ -7,15 +7,16 @@ import {
   VehicleVersionOption,
 } from '../interfaces/catalog.interface';
 import { logger } from '../lib/logger';
+import {
+  canonicalizeBrand,
+  IndexedVehicle,
+  indexVehicles,
+  normalizeVehicleText,
+  resolveStructuredVehicle,
+  searchIndexedVehicles,
+  VehicleResolutionResult,
+} from './vehicle-matcher';
 import seedVehicles from './data/vehicles-ar.json';
-
-function normalizeText(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
 
 function adjustValueForYear(baseValue: number, year: number, referenceYear: number): number {
   const age = Math.max(0, referenceYear - year);
@@ -33,7 +34,7 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
   readonly codeOrigin: CodeOrigin;
 
   private readonly vehicles: VehicleVersionOption[];
-  private readonly indexed: Array<{ item: VehicleVersionOption; haystack: string }>;
+  private readonly indexed: IndexedVehicle[];
 
   constructor(options: LocalCatalogOptions = {}) {
     const loaded = options.vehicles
@@ -47,11 +48,7 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
     this.vehicles = loaded.items;
     this.providerName = loaded.providerName;
     this.codeOrigin = loaded.codeOrigin;
-
-    this.indexed = this.vehicles.map((item) => ({
-      item,
-      haystack: normalizeText(`${item.infoAutoCode} ${item.brand} ${item.model} ${item.version}`),
-    }));
+    this.indexed = indexVehicles(this.vehicles);
   }
 
   private static loadCatalogFromDisk(customFilePath?: string): {
@@ -116,7 +113,11 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
     const currentYear = new Date().getFullYear();
     return {
       ...item,
-      estimatedValue: adjustValueForYear(item.estimatedValue, year, Math.min(item.yearTo, currentYear)),
+      estimatedValue: adjustValueForYear(
+        item.estimatedValue,
+        year,
+        Math.min(item.yearTo, currentYear)
+      ),
     };
   }
 
@@ -128,9 +129,9 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
   }
 
   async getModels(brand: string, year?: number): Promise<string[]> {
-    const normalizedBrand = normalizeText(brand);
+    const normalizedBrand = canonicalizeBrand(brand);
     const filtered = this.vehicles.filter(
-      (v) => normalizeText(v.brand) === normalizedBrand && this.matchesYear(v, year)
+      (v) => normalizeVehicleText(v.brand) === normalizedBrand && this.matchesYear(v, year)
     );
     return Array.from(new Set(filtered.map((v) => v.model))).sort((a, b) =>
       a.localeCompare(b, 'es')
@@ -138,14 +139,14 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
   }
 
   async getVersions(brand: string, model: string, year?: number): Promise<VehicleVersionOption[]> {
-    const normalizedBrand = normalizeText(brand);
-    const normalizedModel = normalizeText(model);
+    const normalizedBrand = canonicalizeBrand(brand);
+    const normalizedModel = normalizeVehicleText(model);
 
     return this.vehicles
       .filter(
         (v) =>
-          normalizeText(v.brand) === normalizedBrand &&
-          normalizeText(v.model) === normalizedModel &&
+          normalizeVehicleText(v.brand) === normalizedBrand &&
+          normalizeVehicleText(v.model) === normalizedModel &&
           this.matchesYear(v, year)
       )
       .map((v) => this.withAdjustedValue(v, year))
@@ -153,34 +154,27 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
   }
 
   async search(query: string, year?: number, limit = 15): Promise<VehicleVersionOption[]> {
-    const norm = normalizeText(query);
-    if (!norm) return [];
+    const { candidates, effectiveYear } = searchIndexedVehicles(this.indexed, query, year, limit);
+    return candidates.map((c) => this.withAdjustedValue(c.vehicle, effectiveYear));
+  }
 
-    const tokens = norm.split(/\s+/).filter(Boolean);
-    const matches: Array<{ item: VehicleVersionOption; score: number }> = [];
-
-    for (const entry of this.indexed) {
-      if (!this.matchesYear(entry.item, year)) continue;
-      if (!tokens.every((t) => entry.haystack.includes(t))) continue;
-
-      let score = 0;
-      if (entry.item.infoAutoCode === norm) score += 200;
-      else if (entry.item.infoAutoCode.startsWith(norm)) score += 120;
-      if (normalizeText(entry.item.model).startsWith(tokens[0])) score += 50;
-      if (normalizeText(entry.item.brand).startsWith(tokens[0])) score += 30;
-
-      matches.push({ item: this.withAdjustedValue(entry.item, year), score });
-    }
-
-    return matches
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          a.item.brand.localeCompare(b.item.brand, 'es') ||
-          a.item.model.localeCompare(b.item.model, 'es')
-      )
-      .slice(0, limit)
-      .map((m) => m.item);
+  async resolveVehicle(params: {
+    brand?: string;
+    model?: string;
+    version?: string;
+    query?: string;
+    year?: number;
+  }): Promise<VehicleResolutionResult> {
+    const result = resolveStructuredVehicle(this.indexed, params);
+    const yearToApply = result.extractedYear ?? params.year;
+    return {
+      ...result,
+      bestMatch: result.bestMatch ? this.withAdjustedValue(result.bestMatch, yearToApply) : null,
+      candidates: result.candidates.map((c) => ({
+        ...c,
+        vehicle: this.withAdjustedValue(c.vehicle, yearToApply),
+      })),
+    };
   }
 
   async findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null> {

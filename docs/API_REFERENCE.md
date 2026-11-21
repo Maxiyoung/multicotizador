@@ -77,8 +77,13 @@ Lista versiones con código InfoAuto (`infoAutoCode`) y valor estimado ajustado 
 ```
 
 ### `GET /api/catalog/search`
-Búsqueda *full-text* sin tildes sobre marca, modelo, versión o código InfoAuto.
+Búsqueda inteligente *full-text* sin tildes sobre marca, modelo, versión o código InfoAuto. Soporta alias argentinos (`vw`, `chevy`, `mercedes`), sinónimos (`automatico`, `hibrido`, `diesel`, `4x4`, `full`), año embebido (`"vw gol trend 2020"`) y tolerancia a typos (`"corola xei"`).
 - **Query params:** `q` *(mínimo 2 caracteres)*, `year` *(opcional)*, `limit` *(opcional, 1..30, default 12)*
+
+### `POST /api/catalog/resolve`
+Resuelve texto libre o datos manuales de vehículo a su `infoAutoCode` más probable con score de confianza (`0..1`) y top 5 candidatos para desambiguación (ideal para carga manual o bots de WhatsApp).
+- **Request Body:** `{ "brand": "VW", "model": "Gol Trend", "version": "1.6 Trendline", "year": 2020 }` o `{ "query": "corolla xei 2022" }`
+- **Respuesta `200 OK`:** `{ "resolved": true, "confidence": 0.96, "bestMatch": { ... }, "candidates": [ ... ] }`
 
 ### `GET /api/catalog/postal-codes/:cp`
 Resuelve un código postal argentino (4 dígitos o CPA como `C1425ABC`).

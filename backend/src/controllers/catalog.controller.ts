@@ -1,7 +1,25 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { catalogService } from '../catalog/catalog.service';
 import { postalCodesService } from '../catalog/postal-codes.service';
 import { OrchestratorService } from '../services/orchestrator.service';
+
+const resolveVehicleSchema = z
+  .object({
+    brand: z.string().trim().min(1).optional(),
+    model: z.string().trim().min(1).optional(),
+    version: z.string().trim().min(1).optional(),
+    query: z.string().trim().min(2).optional(),
+    year: z.coerce
+      .number()
+      .int()
+      .min(1990)
+      .max(new Date().getFullYear() + 1)
+      .optional(),
+  })
+  .refine((data) => Boolean(data.query || data.brand || data.model), {
+    message: 'Debés enviar "query" o al menos "brand"/"model" para resolver el vehículo.',
+  });
 
 function parseOptionalYear(raw: unknown): number | undefined {
   if (typeof raw !== 'string' || !raw.trim()) return undefined;
@@ -77,6 +95,20 @@ export function createCatalogControllers(orchestrator: OrchestratorService) {
       const limit = parseLimit(req.query.limit, 12, 30);
       const results = await catalogService.search(q, year, limit);
       res.json({ results });
+    },
+
+    resolveVehicle: async (req: Request, res: Response) => {
+      const parsed = resolveVehicleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error: 'Datos inválidos para resolver vehículo',
+          details: parsed.error.issues.map((issue) => issue.message),
+        });
+        return;
+      }
+
+      const resolution = await catalogService.resolveVehicle(parsed.data);
+      res.json(resolution);
     },
 
     searchPostalCodes: (req: Request, res: Response) => {

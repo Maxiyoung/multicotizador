@@ -5,6 +5,7 @@ import {
   StandardQuote,
 } from '../../interfaces/quote.interface';
 import { SancorConfig } from '../../config/insurers';
+import { vehicleHomologator } from '../../catalog/vehicle-homologation';
 import {
   SancorQuotationPlan,
   SancorVehicleQuotationRequest,
@@ -155,7 +156,7 @@ export function buildSancorQuotationRequest(
         postalCode: Number(input.postalCode),
       },
       vehicle: {
-        vehicleCode: input.infoAutoCode ?? '000000',
+        vehicleCode: vehicleHomologator.resolveForInsurer('sancor-seguros', input.infoAutoCode) ?? '000000',
         vehicleYear: input.year,
         yearSuggestedValue: estimatedSum,
         vehicleUseTypeCode: input.use === 'comercial' ? 4 : 2,

@@ -1,3 +1,5 @@
+import type { VehicleResolutionResult } from '../catalog/vehicle-matcher';
+
 export type CodeOrigin = 'seed' | 'infoauto';
 
 export type VehicleBodyType = 'sedan' | 'hatchback' | 'suv' | 'pickup' | 'utilitario';
@@ -38,5 +40,12 @@ export interface VehicleCatalogProvider {
   getModels(brand: string, year?: number): Promise<string[]>;
   getVersions(brand: string, model: string, year?: number): Promise<VehicleVersionOption[]>;
   search(query: string, year?: number, limit?: number): Promise<VehicleVersionOption[]>;
+  resolveVehicle(params: {
+    brand?: string;
+    model?: string;
+    version?: string;
+    query?: string;
+    year?: number;
+  }): Promise<VehicleResolutionResult>;
   findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null>;
 }

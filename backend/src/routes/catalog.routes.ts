@@ -11,6 +11,7 @@ export function createCatalogRouter(orchestrator: OrchestratorService): Router {
   router.get('/catalog/models', controllers.getModels);
   router.get('/catalog/versions', controllers.getVersions);
   router.get('/catalog/search', controllers.searchVehicles);
+  router.post('/catalog/resolve', controllers.resolveVehicle);
   router.get('/catalog/postal-codes', controllers.searchPostalCodes);
   router.get('/catalog/postal-codes/:cp', controllers.lookupPostalCode);
 

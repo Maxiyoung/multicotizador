@@ -437,7 +437,7 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
                 }}
                 onFocus={() => setShowVehicleResults(true)}
                 onBlur={() => setTimeout(() => setShowVehicleResults(false), 160)}
-                placeholder="Búsqueda rápida: ej. Cronos, Hilux 4x4 o código InfoAuto..."
+                placeholder="Búsqueda inteligente: ej. vw gol 2020, 208 automatico, hilux 4x4..."
                 className="w-full pl-10 pr-3.5 py-2 bg-blue-50/40 hover:bg-blue-50/70 focus:bg-white border border-blue-200/80 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-all"
               />
 

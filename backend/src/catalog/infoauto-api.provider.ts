@@ -147,6 +147,17 @@ export class InfoAutoApiCatalogProvider implements VehicleCatalogProvider {
     return delegate.search(query, year, limit);
   }
 
+  async resolveVehicle(params: {
+    brand?: string;
+    model?: string;
+    version?: string;
+    query?: string;
+    year?: number;
+  }) {
+    const delegate = await this.ensureDelegate();
+    return delegate.resolveVehicle(params);
+  }
+
   async findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null> {
     const delegate = await this.ensureDelegate();
     return delegate.findByInfoAutoCode(code, year);
