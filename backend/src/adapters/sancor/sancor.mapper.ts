@@ -21,7 +21,7 @@ export function classifySancorPlan(plan: SancorQuotationPlan): PlanCategory {
   if (
     text.includes('todo riesgo') ||
     text.includes('auto todo') ||
-    text.includes('franquicia') ||
+    /(?<!sin\s)franquicia/i.test(text) ||
     text.includes('daños parciales')
   ) {
     return 'TODO_RIESGO';

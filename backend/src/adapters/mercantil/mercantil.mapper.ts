@@ -20,7 +20,7 @@ export interface MercantilRawQuoteResponse {
 
 export function classifyMercantilPlan(name: string): PlanCategory {
   const normalized = name.toLowerCase();
-  if (normalized.includes('todo riesgo') || normalized.includes('franquicia')) {
+  if (normalized.includes('todo riesgo') || /(?<!sin\s)franquicia/i.test(normalized)) {
     return 'TODO_RIESGO';
   }
   if (

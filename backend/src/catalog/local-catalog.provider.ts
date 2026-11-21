@@ -183,7 +183,8 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
       .map((m) => m.item);
   }
 
-  async findByInfoAutoCode(code: string): Promise<VehicleVersionOption | null> {
-    return this.vehicles.find((v) => v.infoAutoCode === code.trim()) ?? null;
+  async findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null> {
+    const found = this.vehicles.find((v) => v.infoAutoCode === code.trim());
+    return found ? this.withAdjustedValue(found, year) : null;
   }
 }

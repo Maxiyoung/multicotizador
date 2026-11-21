@@ -20,9 +20,9 @@ export function createQuoteController(orchestrator: OrchestratorService) {
     try {
       const input = { ...parsed.data };
 
-      // Si el usuario eligió un código InfoAuto del catálogo pero no envió valor, lo completamos
+      // Si el usuario eligió un código InfoAuto del catálogo pero no envió valor, lo completamos ajustado al año
       if (input.infoAutoCode && !input.vehicleValue) {
-        const match = await catalogService.findByInfoAutoCode(input.infoAutoCode);
+        const match = await catalogService.findByInfoAutoCode(input.infoAutoCode, input.year);
         if (match) {
           input.vehicleValue = match.estimatedValue;
         }

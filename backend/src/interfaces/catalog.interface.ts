@@ -38,5 +38,5 @@ export interface VehicleCatalogProvider {
   getModels(brand: string, year?: number): Promise<string[]>;
   getVersions(brand: string, model: string, year?: number): Promise<VehicleVersionOption[]>;
   search(query: string, year?: number, limit?: number): Promise<VehicleVersionOption[]>;
-  findByInfoAutoCode(code: string): Promise<VehicleVersionOption | null>;
+  findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null>;
 }

@@ -74,6 +74,13 @@ npm run api:doctor
 npm run api:doctor:quote
 ```
 
+## Documentación
+
+- **[docs/ARQUITECTURA.md](./docs/ARQUITECTURA.md)** — diseño del sistema, resiliencia, seguridad y estrategia de catálogos.
+- **[docs/API_REFERENCE.md](./docs/API_REFERENCE.md)** — contrato completo de todos los endpoints REST y códigos de error.
+- **[docs/GUIA_NUEVA_ASEGURADORA.md](./docs/GUIA_NUEVA_ASEGURADORA.md)** — guía paso a paso para sumar nuevas aseguradoras.
+- **[DEPLOY_Y_APIS.md](./DEPLOY_Y_APIS.md)** — checklist de deploy (Render + Vercel + Docker) y activación `mock -> live`.
+
 ## Deploy y Activación de APIs Reales (`mock` -> `live`)
 
 Consultá la guía paso a paso en **[DEPLOY_Y_APIS.md](./DEPLOY_Y_APIS.md)** (incluye Blueprint de Render `render.yaml`, configuración de Vercel `frontend/vercel.json`, `backend/Dockerfile` y workflow de GitHub Actions `.github/workflows/ci.yml`).

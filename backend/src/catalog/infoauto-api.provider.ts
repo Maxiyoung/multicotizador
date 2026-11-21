@@ -39,6 +39,7 @@ export class InfoAutoApiCatalogProvider implements VehicleCatalogProvider {
   private readonly http: AxiosInstance;
   private readonly tokenManager: TokenManager;
   private cachedDelegate: LocalVehicleCatalogProvider | null = null;
+  private inFlightSync: Promise<LocalVehicleCatalogProvider> | null = null;
   private cacheExpiresAt = 0;
   private readonly cacheTtlMs = 6 * 60 * 60 * 1000;
 
@@ -75,36 +76,46 @@ export class InfoAutoApiCatalogProvider implements VehicleCatalogProvider {
       return this.cachedDelegate;
     }
 
-    const token = await this.tokenManager.getToken();
-    const res = await this.http.get<RawInfoAutoRecord[]>(this.config.vehiclesPath, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (this.inFlightSync) {
+      return this.inFlightSync;
+    }
 
-    const currentYear = new Date().getFullYear();
-    const normalized: VehicleVersionOption[] = (res.data ?? [])
-      .filter((row) => row.codia !== undefined && row.codia !== null)
-      .map((row) => {
-        const brand = typeof row.brand === 'string' ? row.brand : row.brand?.name ?? 'Otros';
-        const model = typeof row.group === 'string' ? row.group : row.group?.name ?? 'Estándar';
-        const version = (row.description || row.name || model).trim();
-        return {
-          infoAutoCode: String(row.codia).trim(),
-          brand: brand.trim(),
-          model: model.trim(),
-          version,
-          yearFrom: row.prices_from ?? 1995,
-          yearTo: row.prices_to ?? currentYear + 1,
-          estimatedValue: row.list_price && row.list_price > 0 ? row.list_price : 20_000_000,
-          bodyType: 'sedan',
-          fuel: 'nafta',
-          codeOrigin: 'infoauto',
-        };
+    this.inFlightSync = (async () => {
+      const token = await this.tokenManager.getToken();
+      const res = await this.http.get<RawInfoAutoRecord[]>(this.config.vehiclesPath, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-    logger.info('catalog.infoauto_api_synced', { count: normalized.length });
-    this.cachedDelegate = new LocalVehicleCatalogProvider({ vehicles: normalized });
-    this.cacheExpiresAt = Date.now() + this.cacheTtlMs;
-    return this.cachedDelegate;
+      const currentYear = new Date().getFullYear();
+      const normalized: VehicleVersionOption[] = (res.data ?? [])
+        .filter((row) => row.codia !== undefined && row.codia !== null)
+        .map((row) => {
+          const brand = typeof row.brand === 'string' ? row.brand : row.brand?.name ?? 'Otros';
+          const model = typeof row.group === 'string' ? row.group : row.group?.name ?? 'Estándar';
+          const version = (row.description || row.name || model).trim();
+          return {
+            infoAutoCode: String(row.codia).trim(),
+            brand: brand.trim(),
+            model: model.trim(),
+            version,
+            yearFrom: row.prices_from ?? 1995,
+            yearTo: row.prices_to ?? currentYear + 1,
+            estimatedValue: row.list_price && row.list_price > 0 ? row.list_price : 20_000_000,
+            bodyType: 'sedan',
+            fuel: 'nafta',
+            codeOrigin: 'infoauto',
+          };
+        });
+
+      logger.info('catalog.infoauto_api_synced', { count: normalized.length });
+      this.cachedDelegate = new LocalVehicleCatalogProvider({ vehicles: normalized });
+      this.cacheExpiresAt = Date.now() + this.cacheTtlMs;
+      return this.cachedDelegate;
+    })().finally(() => {
+      this.inFlightSync = null;
+    });
+
+    return this.inFlightSync;
   }
 
   getYearRange(): { minYear: number; maxYear: number } {
@@ -136,8 +147,8 @@ export class InfoAutoApiCatalogProvider implements VehicleCatalogProvider {
     return delegate.search(query, year, limit);
   }
 
-  async findByInfoAutoCode(code: string): Promise<VehicleVersionOption | null> {
+  async findByInfoAutoCode(code: string, year?: number): Promise<VehicleVersionOption | null> {
     const delegate = await this.ensureDelegate();
-    return delegate.findByInfoAutoCode(code);
+    return delegate.findByInfoAutoCode(code, year);
   }
 }

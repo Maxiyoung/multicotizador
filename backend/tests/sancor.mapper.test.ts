@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AxiosError, AxiosHeaders } from 'axios';
 import {
   buildSancorQuotationRequest,
+  classifySancorPlan,
   mapSancorQuotationResponse,
 } from '../src/adapters/sancor/sancor.mapper';
 import { SancorAdapter } from '../src/adapters/sancor/sancor.adapter';
@@ -116,6 +117,16 @@ describe('Sancor mapper & adapter', () => {
       franchiseType: 'fixed',
       insuredSum: 32_500_000,
     });
+  });
+
+  it('no clasifica un Terceros Completo como Todo Riesgo si solo menciona "sin franquicia"', () => {
+    const category = classifySancorPlan({
+      module: {
+        coverageName: 'Auto Max 6 — Terceros Completo',
+        observations: 'Cristales y granizo sin franquicia',
+      },
+    });
+    expect(category).toBe('TERCEROS_COMPLETO');
   });
 
   it('reintenta automáticamente una vez tras recibir 401 renovando token Auth0', async () => {
