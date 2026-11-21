@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { getQuotes } from '../controllers/quote.controller';
+import { OrchestratorService } from '../services/orchestrator.service';
+import { createQuoteController } from '../controllers/quote.controller';
 
-const router = Router();
-
-router.post('/quotes', getQuotes);
-
-export default router;
+export function createQuoteRouter(orchestrator: OrchestratorService): Router {
+  const router = Router();
+  router.post('/quotes', createQuoteController(orchestrator));
+  return router;
+}

@@ -1,38 +1,29 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
-import quoteRoutes from './routes/quote.routes';
+import { createApp } from './app';
+import { logger } from './lib/logger';
 
-const app = express();
+const app = createApp();
 
-app.set('trust proxy', 1);
-app.use(helmet());
-
-app.use(
-  cors({
-    origin: env.CORS_ORIGIN,
-    methods: ['GET', 'POST'],
-  })
-);
-app.use(express.json());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiadas solicitudes de cotización. Intenta de nuevo en 15 minutos.' },
-});
-app.use('/api/', limiter);
-
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', environment: env.NODE_ENV });
+const server = app.listen(env.PORT, () => {
+  logger.info('server.started', {
+    port: env.PORT,
+    environment: env.NODE_ENV,
+    mercantilMode: env.MERCANTIL_MODE,
+    sancorMode: env.SANCOR_MODE,
+  });
 });
 
-app.use('/api', quoteRoutes);
+function shutdown(signal: string) {
+  logger.info('server.shutdown_started', { signal });
+  server.close((err) => {
+    if (err) {
+      logger.error('server.shutdown_error', err);
+      process.exit(1);
+    }
+    logger.info('server.shutdown_complete', { signal });
+    process.exit(0);
+  });
+}
 
-app.listen(env.PORT, () => {
-  console.log(`[Server] Listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
-});
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
