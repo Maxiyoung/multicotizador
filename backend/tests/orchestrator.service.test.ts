@@ -92,6 +92,23 @@ describe('OrchestratorService', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it('no cachea cotizaciones live para evitar reutilizar el mismo quotationCode entre usuarios', async () => {
+    const spy = vi.fn(async () => [{ ...makeQuote('live', 'Aseguradora Live', 30000), source: 'live' as const }]);
+    const adapter = new FakeAdapter('live', 'Aseguradora Live', spy);
+
+    const orchestrator = new OrchestratorService({
+      adapters: [adapter],
+      cacheTtlMs: 60_000,
+    });
+
+    const first = await orchestrator.calculateAllQuotes(sampleInput);
+    const second = await orchestrator.calculateAllQuotes(sampleInput);
+
+    expect(first.cached).toBe(false);
+    expect(second.cached).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
   it('aborta adaptadores lentos cuando se supera el timeout global', async () => {
     const slowAdapter = new FakeAdapter('slow', 'Lenta SA', async (_input, options) => {
       return new Promise<StandardQuote[]>((resolve, reject) => {

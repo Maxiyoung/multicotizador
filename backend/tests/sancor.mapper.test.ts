@@ -16,6 +16,7 @@ const baseConfig: SancorConfig = {
   username: 'pas-user',
   password: 'pas-password',
   appClient: 'SegurosAutoYa',
+  useEsbAuth: false,
   producerCode: 12345,
   upperProducerCode: 10000,
   productCode: 24,
@@ -127,6 +128,91 @@ describe('Sancor mapper & adapter', () => {
       },
     });
     expect(category).toBe('TERCEROS_COMPLETO');
+  });
+
+  it('extrae franquicias abreviadas ("Franq. 2%") y genera externalId único cuando 2 Todo Riesgo comparten coverageCode', () => {
+    const quotes = mapSancorQuotationResponse(
+      {
+        vehicleQuotation: {
+          quotationCode: 888111,
+          plans: [
+            {
+              id: 101,
+              success: true,
+              quotaPremiumMonthly: 61000,
+              vehicleInsuredSum: 30_000_000,
+              module: { coverageCode: 50, coverageName: 'Todo Riesgo', observations: 'Franq. 2%' },
+            },
+            {
+              id: 102,
+              success: true,
+              quotaPremiumMonthly: 54000,
+              vehicleInsuredSum: 30_000_000,
+              module: { coverageCode: 50, coverageName: 'Todo Riesgo', observations: 'Franq. 4%' },
+            },
+          ],
+        },
+      },
+      sampleInput,
+      'live'
+    );
+
+    expect(quotes).toHaveLength(2);
+    expect(quotes[0].franchise).toBe(600_000);
+    expect(quotes[1].franchise).toBe(1_200_000);
+    expect(quotes[0].externalId).not.toBe(quotes[1].externalId);
+  });
+
+  it('soporta intercambio opcional Auth0 -> GetAuthESB cuando useEsbAuth=true', async () => {
+    const adapter = new SancorAdapter({ ...baseConfig, useEsbAuth: true });
+    const http = (adapter as unknown as {
+      http: {
+        post: (...args: unknown[]) => Promise<unknown>;
+        get: (...args: unknown[]) => Promise<unknown>;
+      };
+    }).http;
+
+    const postSpy = vi.spyOn(http, 'post').mockImplementation(async (url: unknown) => {
+      if (url === '/v2/security/auth0/token') {
+        return { data: { access_token: 'auth0-jwt', expires_in: 3600 } };
+      }
+      if (url === '/quotations/vehicle/automotive') {
+        return {
+          data: {
+            vehicleQuotation: {
+              quotationCode: 123456,
+              plans: [
+                {
+                  id: 1,
+                  success: true,
+                  quotaPremiumMonthly: 31000,
+                  module: { coverageCode: 10, coverageName: 'Auto Base RC' },
+                },
+              ],
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected POST ${String(url)}`);
+    });
+
+    const getSpy = vi.spyOn(http, 'get').mockResolvedValue({ data: 'esb-token-xyz' });
+
+    const quotes = await adapter.getQuote(sampleInput);
+    expect(getSpy).toHaveBeenCalledWith(
+      '/security/generate/authorization/esb',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer auth0-jwt' }),
+      })
+    );
+    expect(postSpy).toHaveBeenLastCalledWith(
+      '/quotations/vehicle/automotive',
+      expect.anything(),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer esb-token-xyz' }),
+      })
+    );
+    expect(quotes).toHaveLength(1);
   });
 
   it('reintenta automáticamente una vez tras recibir 401 renovando token Auth0', async () => {

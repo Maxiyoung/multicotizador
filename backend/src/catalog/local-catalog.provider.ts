@@ -153,9 +153,27 @@ export class LocalVehicleCatalogProvider implements VehicleCatalogProvider {
       .sort((a, b) => a.version.localeCompare(b.version, 'es'));
   }
 
-  async search(query: string, year?: number, limit = 15): Promise<VehicleVersionOption[]> {
+  async search(
+    query: string,
+    year?: number,
+    limit = 15,
+    preferredYear?: number
+  ): Promise<VehicleVersionOption[]> {
     const { candidates, effectiveYear } = searchIndexedVehicles(this.indexed, query, year, limit);
-    return candidates.map((c) => this.withAdjustedValue(c.vehicle, effectiveYear));
+    const currentYear = new Date().getFullYear();
+
+    return candidates.map((c) => {
+      const valuationYear =
+        effectiveYear ??
+        (preferredYear !== undefined &&
+        preferredYear >= c.vehicle.yearFrom &&
+        preferredYear <= c.vehicle.yearTo
+          ? preferredYear
+          : preferredYear !== undefined
+            ? Math.min(c.vehicle.yearTo, currentYear)
+            : undefined);
+      return this.withAdjustedValue(c.vehicle, valuationYear);
+    });
   }
 
   async resolveVehicle(params: {

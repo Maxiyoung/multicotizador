@@ -254,7 +254,7 @@ export function searchIndexedVehicles(
   limit = 15
 ): { candidates: VehicleMatchCandidate[]; effectiveYear?: number } {
   const { cleanQuery, year: inlineYear } = extractInlineYear(rawQuery);
-  const effectiveYear = explicitYear ?? inlineYear;
+  const effectiveYear = inlineYear ?? explicitYear;
   const norm = normalizeVehicleText(cleanQuery || rawQuery);
   if (!norm) {
     return { candidates: [], effectiveYear };

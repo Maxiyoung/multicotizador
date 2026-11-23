@@ -92,8 +92,9 @@ export function createCatalogControllers(orchestrator: OrchestratorService) {
         return;
       }
       const year = parseOptionalYear(req.query.year);
+      const preferredYear = parseOptionalYear(req.query.preferredYear);
       const limit = parseLimit(req.query.limit, 12, 30);
-      const results = await catalogService.search(q, year, limit);
+      const results = await catalogService.search(q, year, limit, preferredYear);
       res.json({ results });
     },
 

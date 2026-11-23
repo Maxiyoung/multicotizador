@@ -23,13 +23,23 @@ describe('env validation', () => {
     ).toThrow(/MERCANTIL_USER/);
   });
 
-  it('falla al arrancar si SANCOR_MODE=live y faltan credenciales', () => {
+  it('falla al arrancar si SANCOR_MODE=live y faltan credenciales o códigos de productor', () => {
     expect(() =>
       parseEnv({
         MERCANTIL_MODE: 'off',
         SANCOR_MODE: 'live',
       })
     ).toThrow(/SANCOR_CLIENT_ID/);
+
+    expect(() =>
+      parseEnv({
+        MERCANTIL_MODE: 'off',
+        SANCOR_MODE: 'live',
+        SANCOR_CLIENT_ID: 'cid',
+        SANCOR_USERNAME: 'u',
+        SANCOR_PASSWORD: 'p',
+      })
+    ).toThrow(/SANCOR_PRODUCER_CODE/);
   });
 
   it('falla al arrancar si CATALOG_PROVIDER=infoauto-api y faltan credenciales', () => {

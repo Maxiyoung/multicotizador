@@ -51,7 +51,9 @@ function extractFranchise(plan: SancorQuotationPlan): {
     .filter(Boolean)
     .join(' ');
 
-  const amountMatch = detailsText.match(/franquicia[^0-9$%]*\$\s*([\d.]+)/i);
+  const amountMatch = detailsText.match(
+    /(?:franquicia|franq\.?|deducible|ded\.?)[^0-9$%]*\$\s*([\d.]+)/i
+  );
   if (amountMatch) {
     const parsed = Number(amountMatch[1].replace(/\./g, ''));
     if (Number.isFinite(parsed) && parsed > 0) {
@@ -59,7 +61,9 @@ function extractFranchise(plan: SancorQuotationPlan): {
     }
   }
 
-  const percentMatch = detailsText.match(/franquicia[^0-9%]*(\d+(?:[.,]\d+)?)\s*%/i);
+  const percentMatch = detailsText.match(
+    /(?:franquicia|franq\.?|deducible|ded\.?)[^0-9%]*(\d+(?:[.,]\d+)?)\s*%/i
+  );
   if (percentMatch && plan.vehicleInsuredSum) {
     const pct = Number(percentMatch[1].replace(',', '.'));
     if (Number.isFinite(pct) && pct > 0) {
@@ -215,7 +219,7 @@ export function mapSancorQuotationResponse(
         franchise,
         franchiseType,
         coverageDetails: extractCoverageDetails(plan, planType),
-        externalId: `SS-${quotationCode ?? input.year}-${coverageCode}`,
+        externalId: `SS-${quotationCode ?? input.year}-${coverageCode}-${plan.id ?? index + 1}`,
         quoteReference: quotationCode ? `SS-${quotationCode}` : undefined,
         validUntil,
         source,

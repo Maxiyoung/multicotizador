@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   ShieldCheck,
@@ -11,6 +11,7 @@ import {
   Sparkles,
   ArrowUpDown,
   Info,
+  RotateCcw,
 } from 'lucide-react';
 import { QuoteForm } from './components/quoteform';
 import { QuoteCard } from './components/quotecard';
@@ -32,15 +33,21 @@ const COVERAGE_RANK: Record<PlanCategory, number> = {
 
 function App() {
   const [vehicleData, setVehicleData] = useState<QuoteInput | null>(null);
+  const [lastSubmittedInput, setLastSubmittedInput] = useState<QuoteInput | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | PlanCategory>('ALL');
   const [selectedCompany, setSelectedCompany] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('PRICE_ASC');
+  const resultsSectionRef = useRef<HTMLDivElement>(null);
+
+  const pasName = (import.meta.env.VITE_PAS_NAME || '').trim();
+  const ssnLicense = (import.meta.env.VITE_SSN_LICENSE || '').trim();
 
   const metaQuery = useQuery({
     queryKey: ['catalog', 'meta'],
     queryFn: fetchCatalogMeta,
     staleTime: 10 * 60 * 1000,
-    retry: 1,
+    retry: 2,
+    retryDelay: 1500,
   });
 
   const { mutate, isPending, isError, error, data } = useMutation({
@@ -52,6 +59,16 @@ function App() {
     },
   });
 
+  const handleQuoteSubmit = (formData: QuoteInput) => {
+    setLastSubmittedInput(formData);
+    mutate(formData);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setTimeout(() => {
+        resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+  };
+
   const activeProviderNames =
     metaQuery.data?.activeProviders.map((p) => p.companyName) ?? [
       'Mercantil Andina',
@@ -60,7 +77,21 @@ function App() {
 
   const quotes = data?.quotes;
   const failedProviders = data?.failedProviders ?? [];
+  const allProvidersFailed =
+    !isPending && quotes !== undefined && quotes.length === 0 && failedProviders.length > 0;
+  const hasPartialFailure =
+    !isPending && quotes !== undefined && quotes.length > 0 && failedProviders.length > 0;
   const hasMockQuotes = quotes?.some((q) => q.source === 'mock') ?? false;
+
+  // Destacamos como RECOMENDADO únicamente el mejor Terceros Completo por precio
+  const recommendedQuoteKey = useMemo(() => {
+    if (!quotes || quotes.length === 0) return null;
+    const terceros = quotes
+      .filter((q) => q.planType === 'TERCEROS_COMPLETO')
+      .sort((a, b) => a.price - b.price);
+    const winner = terceros[0];
+    return winner ? `${winner.companyId}-${winner.externalId}` : null;
+  }, [quotes]);
 
   const availableCompanies = useMemo(() => {
     if (!quotes) return [];
@@ -136,7 +167,8 @@ function App() {
             Protegé tu vehículo con la cobertura exacta que necesitás
           </h1>
           <p className="text-slate-300 text-base sm:text-lg mt-3 max-w-2xl mx-auto font-normal">
-            Cotizá en segundos en múltiples compañías, compará franquicias transparentes y contratá con asesoramiento directo.
+            Cotizá en segundos en múltiples compañías, compará franquicias transparentes y contratá
+            con asesoramiento directo.
           </p>
         </div>
       </section>
@@ -159,12 +191,12 @@ function App() {
                 </div>
               </div>
 
-              <QuoteForm onSubmit={(formData) => mutate(formData)} isLoading={isPending} />
+              <QuoteForm onSubmit={handleQuoteSubmit} isLoading={isPending} />
             </div>
           </div>
 
           {/* Columna Derecha: Resultados */}
-          <div className="lg:col-span-7">
+          <div ref={resultsSectionRef} className="lg:col-span-7 scroll-mt-20">
             {/* Estado Inicial */}
             {!isPending && !quotes && !isError && (
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-8 sm:p-12 text-center min-h-[420px] flex flex-col items-center justify-center">
@@ -209,27 +241,40 @@ function App() {
               </div>
             )}
 
-            {/* Estado de Error */}
-            {isError && (
-              <div className="p-6 bg-white border-2 border-red-200 rounded-2xl shadow-sm flex items-start gap-4 text-red-800">
-                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0 text-red-600">
-                  <AlertCircle className="w-6 h-6" />
+            {/* Estado de Error o Caída Total de Proveedores */}
+            {(isError || allProvidersFailed) && !isPending && (
+              <div className="p-6 bg-white border-2 border-red-200 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start justify-between gap-4 text-red-800">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0 text-red-600">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base text-slate-900">
+                      No pudimos procesar la cotización
+                    </h4>
+                    <p className="text-sm text-slate-600 mt-1">
+                      {isError && error instanceof Error
+                        ? error.message
+                        : `Los servicios de ${failedProviders.join(', ')} presentan demoras temporales. Intentá nuevamente en unos segundos.`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-base text-slate-900">
-                    No pudimos procesar la cotización
-                  </h4>
-                  <p className="text-sm text-slate-600 mt-1">
-                    {error instanceof Error
-                      ? error.message
-                      : 'Verificá que el servidor backend esté activo e intentá nuevamente.'}
-                  </p>
-                </div>
+
+                {lastSubmittedInput && (
+                  <button
+                    type="button"
+                    onClick={() => mutate(lastSubmittedInput)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reintentar
+                  </button>
+                )}
               </div>
             )}
 
             {/* Aviso honesto cuando hay tarifas simuladas */}
-            {hasMockQuotes && !isPending && (
+            {hasMockQuotes && !isPending && !isError && (
               <div className="mb-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl flex items-center gap-2.5 text-blue-900 text-xs font-medium">
                 <Info className="w-4 h-4 shrink-0 text-blue-600" />
                 <span>
@@ -239,19 +284,19 @@ function App() {
               </div>
             )}
 
-            {/* Alerta si algún proveedor falló */}
-            {failedProviders.length > 0 && !isPending && (
+            {/* Alerta solo ante fallo parcial (cuando al menos 1 aseguradora respondió planes) */}
+            {hasPartialFailure && !isError && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 text-amber-900 text-sm">
                 <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
                 <span>
                   El servicio de <strong>{failedProviders.join(', ')}</strong> presentó demoras.
-                  Mostrando planes disponibles.
+                  Mostrando planes disponibles de las demás aseguradoras.
                 </span>
               </div>
             )}
 
             {/* Lista de Resultados */}
-            {quotes && vehicleData && !isPending && (
+            {quotes && quotes.length > 0 && vehicleData && !isPending && !isError && (
               <div className="space-y-4">
                 {/* Cabecera del vehículo cotizado + Filtros */}
                 <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
@@ -342,13 +387,17 @@ function App() {
                 </div>
 
                 {filteredQuotes && filteredQuotes.length > 0 ? (
-                  filteredQuotes.map((quote: StandardQuote) => (
-                    <QuoteCard
-                      key={`${quote.companyId}-${quote.externalId}`}
-                      quote={quote}
-                      vehicleData={vehicleData}
-                    />
-                  ))
+                  filteredQuotes.map((quote: StandardQuote) => {
+                    const cardKey = `${quote.companyId}-${quote.externalId}`;
+                    return (
+                      <QuoteCard
+                        key={cardKey}
+                        quote={quote}
+                        vehicleData={vehicleData}
+                        isRecommended={cardKey === recommendedQuoteKey}
+                      />
+                    );
+                  })
                 ) : (
                   <div className="p-10 bg-white rounded-2xl border border-slate-200 text-center text-slate-500 text-sm">
                     No hay planes disponibles con los filtros seleccionados para el año{' '}
@@ -394,15 +443,31 @@ function App() {
         </div>
       </main>
 
-      {/* Footer Institucional de Confianza */}
+      {/* Footer Institucional y Regulatorio SSN */}
       <footer className="bg-white border-t border-slate-200/80 py-6 px-4 text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="font-medium text-slate-600">
-            © {new Date().getFullYear()} SegurosAutoYa · Multicotizador de Seguros Automotores.
-          </p>
-          <p className="text-slate-400 text-center sm:text-right">
-            Superintendencia de Seguros de la Nación (SSN) · Los valores expuestos son referenciales
-            sujetos a inspección.
+        <div className="max-w-6xl mx-auto flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="font-medium text-slate-700">
+              © {new Date().getFullYear()} SegurosAutoYa
+              {pasName ? ` · ${pasName}` : ' · Multicotizador de Seguros Automotores'}
+              {ssnLicense ? ` · Matrícula SSN N.º ${ssnLicense}` : ''}
+            </p>
+            <p className="text-slate-500 text-center sm:text-right">
+              Superintendencia de Seguros de la Nación ·{' '}
+              <span className="font-semibold text-slate-600">0800-666-8400</span> ·{' '}
+              <a
+                href="https://www.argentina.gob.ar/ssn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-slate-800"
+              >
+                argentina.gob.ar/ssn
+              </a>
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-400 text-center sm:text-left">
+            Los valores informados son referenciales y están sujetos a verificación técnica e
+            inspección previa según políticas de suscripción de cada entidad aseguradora autorizada.
           </p>
         </div>
       </footer>

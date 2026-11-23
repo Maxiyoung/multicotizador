@@ -62,10 +62,12 @@ services:
         sync: false
       - key: SANCOR_APP_CLIENT
         value: SegurosAutoYa
+      - key: SANCOR_USE_ESB_AUTH
+        value: "false"
       - key: SANCOR_PRODUCER_CODE
-        value: "10001"
+        sync: false
       - key: SANCOR_UPPER_PRODUCER_CODE
-        value: "10000"
+        sync: false
       - key: SANCOR_PRODUCT_CODE
         value: "24"
       - key: SANCOR_VIGENCY_CODE

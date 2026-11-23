@@ -4,6 +4,7 @@ import { trackLeadClick, type StandardQuote, type QuoteInput } from '../services
 interface QuoteCardProps {
   quote: StandardQuote;
   vehicleData: QuoteInput;
+  isRecommended?: boolean;
 }
 
 const formatCurrency = (val: number) =>
@@ -15,16 +16,15 @@ const formatCurrency = (val: number) =>
 
 const categoryBadge: Record<
   StandardQuote['planType'],
-  { label: string; classes: string; recommended?: boolean }
+  { label: string; classes: string }
 > = {
   RC: {
     label: 'Cobertura Básica',
     classes: 'bg-slate-100 text-slate-700 border-slate-200',
   },
   TERCEROS_COMPLETO: {
-    label: 'Más Elegido · Equilibrio Ideal',
+    label: 'Equilibrio Ideal',
     classes: 'bg-blue-50 text-blue-700 border-blue-200',
-    recommended: true,
   },
   TODO_RIESGO: {
     label: 'Máxima Protección',
@@ -43,7 +43,7 @@ const companyStyle: Record<string, { badgeBg: string; iconColor: string }> = {
   },
 };
 
-export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
+export function QuoteCard({ quote, vehicleData, isRecommended = false }: QuoteCardProps) {
   const formattedPrice = formatCurrency(quote.price);
   const phoneNumber = (import.meta.env.VITE_WHATSAPP_NUMBER || '').trim();
 
@@ -59,15 +59,12 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
   const message = `¡Hola! Coticé en SegurosAutoYa y me interesa contratar el plan *${quote.planName}* de *${quote.companyName}* (${formattedPrice}/mes) para mi ${vehicleData.brand} ${vehicleData.model} ${vehicleData.version} (${vehicleData.year})${zeroKmText}${gncText}, CP ${vehicleData.postalCode}${locationText}${infoAutoText}${refText}. ¿Me ayudás a emitirlo?`;
   const encodedMessage = encodeURIComponent(message);
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // https://wa.me/ es universal en Android, iOS, desktop y WebViews de Instagram/Facebook Ads
   const whatsappUrl = phoneNumber
-    ? isMobile
-      ? `whatsapp://send?phone=${phoneNumber}&text=${encodedMessage}`
-      : `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`
+    ? `https://wa.me/${phoneNumber}?text=${encodedMessage}`
     : '';
 
   const badge = categoryBadge[quote.planType];
-  const isRecommended = badge.recommended;
   const brandVisual = companyStyle[quote.companyId] ?? {
     badgeBg: 'bg-white border-slate-200/80 text-slate-700',
     iconColor: 'text-blue-600',
@@ -176,6 +173,11 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
                   {formatCurrency(quote.franchise)}
                 </span>
               </div>
+            ) : quote.planType === 'TODO_RIESGO' ? (
+              <div className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg">
+                <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Franquicia según condiciones de póliza</span>
+              </div>
             ) : (
               <span className="mt-2 inline-block text-xs font-medium text-emerald-700">
                 ✓ Sin franquicia en coberturas incluidas
@@ -206,7 +208,7 @@ export function QuoteCard({ quote, vehicleData }: QuoteCardProps) {
             {phoneNumber ? (
               <a
                 href={whatsappUrl}
-                target={isMobile ? '_self' : '_blank'}
+                target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleCtaClick}
                 className="w-full bg-[#16A34A] hover:bg-[#15803D] active:scale-[0.99] text-white font-semibold py-3 px-5 rounded-xl shadow-md shadow-emerald-600/15 hover:shadow-lg hover:shadow-emerald-600/25 transition-all duration-200 flex justify-center items-center gap-2.5 text-sm"

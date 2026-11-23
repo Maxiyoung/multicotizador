@@ -44,8 +44,23 @@ export class SancorAdapter extends BaseAdapter {
           }
         );
 
+        let finalToken = response.data.access_token;
+
+        // Intercambio opcional de token Auth0 -> token ESB según `getauthesb_1.0.0.json`
+        if (this.config.useEsbAuth && finalToken) {
+          const esbRes = await this.http.get<string>('/security/generate/authorization/esb', {
+            headers: {
+              Authorization: `Bearer ${finalToken}`,
+              gss_apiclient_id: this.config.clientId,
+            },
+          });
+          if (typeof esbRes.data === 'string' && esbRes.data.trim()) {
+            finalToken = esbRes.data.trim().replace(/^Bearer\s+/i, '');
+          }
+        }
+
         return {
-          accessToken: response.data.access_token,
+          accessToken: finalToken,
           expiresInSec: response.data.expires_in ?? 3600,
         };
       },

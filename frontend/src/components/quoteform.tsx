@@ -57,6 +57,15 @@ const formSchema = z.object({
   gncValue: z.number().positive('Valor de GNC inválido').optional(),
   isZeroKm: z.boolean(),
   hasGarage: z.boolean(),
+}).superRefine((data, ctx) => {
+  const minZeroKmYear = CURRENT_YEAR - 1;
+  if (data.isZeroKm && data.year < minZeroKmYear) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['isZeroKm'],
+      message: `Solo vehículos ${minZeroKmYear} o posteriores pueden ser 0 KM`,
+    });
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -150,7 +159,8 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
     queryFn: () => fetchBrands(validYear),
     enabled: !manualMode && validYear !== undefined,
     staleTime: 10 * 60 * 1000,
-    retry: 1,
+    retry: 2,
+    retryDelay: 1500,
   });
 
   const modelsQuery = useQuery({
@@ -171,8 +181,8 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
   });
 
   const quickSearchQuery = useQuery({
-    queryKey: ['catalog', 'search', debouncedVehicleSearch],
-    queryFn: () => searchVehicles(debouncedVehicleSearch),
+    queryKey: ['catalog', 'search', debouncedVehicleSearch, validYear],
+    queryFn: () => searchVehicles(debouncedVehicleSearch, validYear),
     enabled: !manualMode && debouncedVehicleSearch.length >= 2,
     staleTime: 5 * 60 * 1000,
     retry: 0,
@@ -202,8 +212,13 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
   const effectiveManualMode =
     manualMode || brandsQuery.isError || (brandsQuery.isSuccess && brands.length === 0);
 
+  const canBeZeroKm = selectedYear >= CURRENT_YEAR - 1;
+
   const handleYearChange = (newYear: number) => {
     setValue('year', newYear, { shouldValidate: true });
+    if (newYear < CURRENT_YEAR - 1) {
+      setValue('isZeroKm', false);
+    }
     if (!effectiveManualMode) {
       setValue('brand', '');
       setValue('model', '');
@@ -229,14 +244,21 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
   };
 
   const applyCatalogVehicle = (picked: VehicleVersionOption) => {
-    // Ajustamos año si el año actual no cae dentro del rango de comercialización del vehículo
+    const inlineYearMatch = debouncedVehicleSearch.match(/\b(199\d|20[0-3]\d)\b/);
+    const inlineYear = inlineYearMatch ? Number(inlineYearMatch[1]) : undefined;
+    const desiredYear = inlineYear ?? selectedYear;
+
+    // Ajustamos año si el año deseado no cae dentro del rango de comercialización del vehículo
     const targetYear =
-      selectedYear >= picked.yearFrom && selectedYear <= picked.yearTo
-        ? selectedYear
+      desiredYear >= picked.yearFrom && desiredYear <= picked.yearTo
+        ? desiredYear
         : Math.min(picked.yearTo, CURRENT_YEAR);
 
     setManualMode(false);
     setValue('year', targetYear, { shouldValidate: true });
+    if (targetYear < CURRENT_YEAR - 1) {
+      setValue('isZeroKm', false);
+    }
     setValue('brand', picked.brand, { shouldValidate: true });
     setValue('model', picked.model, { shouldValidate: true });
     setValue('version', picked.version, { shouldValidate: true });
@@ -695,23 +717,37 @@ export function QuoteForm({ onSubmit, isLoading }: QuoteFormProps) {
           </label>
 
           <label
-            className={`flex flex-col items-start gap-1.5 p-2.5 rounded-xl border text-sm font-medium cursor-pointer transition-all select-none ${
-              isZeroKm
-                ? 'bg-blue-50/80 border-blue-600 text-blue-950 ring-2 ring-blue-600/10'
-                : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100/80'
+            title={
+              canBeZeroKm
+                ? 'Marcar si el vehículo es 0 KM'
+                : `Disponible solo para modelos ${CURRENT_YEAR - 1} o posteriores`
+            }
+            className={`flex flex-col items-start gap-1.5 p-2.5 rounded-xl border text-sm font-medium transition-all select-none ${
+              !canBeZeroKm
+                ? 'bg-slate-100/70 border-slate-200/70 text-slate-400 opacity-60 cursor-not-allowed'
+                : isZeroKm
+                  ? 'bg-blue-50/80 border-blue-600 text-blue-950 ring-2 ring-blue-600/10 cursor-pointer'
+                  : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100/80 cursor-pointer'
             }`}
           >
-            <input type="checkbox" {...register('isZeroKm')} className="sr-only" />
+            <input
+              type="checkbox"
+              disabled={!canBeZeroKm}
+              {...register('isZeroKm')}
+              className="sr-only"
+            />
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                isZeroKm ? 'bg-blue-600 text-white' : 'bg-slate-200/70 text-slate-500'
+                canBeZeroKm && isZeroKm ? 'bg-blue-600 text-white' : 'bg-slate-200/70 text-slate-500'
               }`}
             >
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <span className="block text-xs font-bold leading-tight">Es 0 KM</span>
-              <span className="block text-[10px] text-slate-500">Sin rodar</span>
+              <span className="block text-[10px] text-slate-500">
+                {canBeZeroKm ? 'Sin rodar' : `${CURRENT_YEAR - 1}+`}
+              </span>
             </div>
           </label>
 

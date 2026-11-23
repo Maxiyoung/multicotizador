@@ -44,9 +44,23 @@ const envSchema = z
     SANCOR_USERNAME: z.string().optional().default(''),
     SANCOR_PASSWORD: z.string().optional().default(''),
     SANCOR_APP_CLIENT: z.string().default('SegurosAutoYa'),
-    SANCOR_PRODUCER_CODE: z.coerce.number().int().positive().default(10001),
-    SANCOR_UPPER_PRODUCER_CODE: z.coerce.number().int().positive().default(10000),
-    SANCOR_STATISTIC_CODE: z.coerce.number().int().positive().optional(),
+    SANCOR_USE_ESB_AUTH: z
+      .enum(['true', 'false', '1', '0', ''])
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true' || v === '1'),
+    SANCOR_PRODUCER_CODE: z.preprocess(
+      (v) => (v === '' || v === undefined ? undefined : v),
+      z.coerce.number().int().positive().optional()
+    ),
+    SANCOR_UPPER_PRODUCER_CODE: z.preprocess(
+      (v) => (v === '' || v === undefined ? undefined : v),
+      z.coerce.number().int().positive().optional()
+    ),
+    SANCOR_STATISTIC_CODE: z.preprocess(
+      (v) => (v === '' || v === undefined ? undefined : v),
+      z.coerce.number().int().positive().optional()
+    ),
     SANCOR_PRODUCT_CODE: z.coerce.number().int().positive().default(24),
     SANCOR_VIGENCY_CODE: z.coerce.number().int().min(1).max(3).default(1),
     SANCOR_PAYMENT_PERIODICITY_CODE: z.coerce.number().int().default(5),
@@ -89,6 +103,8 @@ const envSchema = z
         'SANCOR_CLIENT_ID',
         'SANCOR_USERNAME',
         'SANCOR_PASSWORD',
+        'SANCOR_PRODUCER_CODE',
+        'SANCOR_UPPER_PRODUCER_CODE',
       ];
       for (const key of required) {
         if (!data[key]) {

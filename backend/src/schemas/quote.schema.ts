@@ -39,4 +39,13 @@ export const quoteInputSchema = z.object({
     .trim()
     .regex(/^\d{7,8}$/, 'DNI inválido')
     .optional(),
+}).superRefine((data, ctx) => {
+  const minZeroKmYear = new Date().getFullYear() - 1;
+  if (data.isZeroKm && data.year < minZeroKmYear) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['isZeroKm'],
+      message: `Un vehículo 0 KM debe ser año ${minZeroKmYear} o posterior`,
+    });
+  }
 });

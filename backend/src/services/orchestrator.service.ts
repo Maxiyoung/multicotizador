@@ -121,8 +121,10 @@ export class OrchestratorService {
         timestamp: new Date().toISOString(),
       };
 
-      // Cacheamos solo si al menos un proveedor respondió correctamente
-      if (quotes.length > 0 && failedProviders.length === 0) {
+      // Solo cacheamos respuestas simuladas (mock): en modo live cada usuario debe obtener
+      // su propio quotationCode único ante la aseguradora para evitar colisiones al emitir.
+      const hasLiveQuotes = quotes.some((q) => q.source === 'live');
+      if (quotes.length > 0 && failedProviders.length === 0 && !hasLiveQuotes) {
         this.cache.set(cacheKey, payload);
       }
 

@@ -18,6 +18,7 @@ export interface SancorConfig {
   username: string;
   password: string;
   appClient: string;
+  useEsbAuth: boolean;
   producerCode: number;
   upperProducerCode: number;
   statisticCode?: number;
@@ -52,8 +53,9 @@ export function buildInsurersConfig(cfg: EnvConfig = env): InsurersConfig {
       username: cfg.SANCOR_USERNAME,
       password: cfg.SANCOR_PASSWORD,
       appClient: cfg.SANCOR_APP_CLIENT,
-      producerCode: cfg.SANCOR_PRODUCER_CODE,
-      upperProducerCode: cfg.SANCOR_UPPER_PRODUCER_CODE,
+      useEsbAuth: cfg.SANCOR_USE_ESB_AUTH,
+      producerCode: cfg.SANCOR_PRODUCER_CODE ?? 10001,
+      upperProducerCode: cfg.SANCOR_UPPER_PRODUCER_CODE ?? 10000,
       statisticCode: cfg.SANCOR_STATISTIC_CODE,
       productCode: cfg.SANCOR_PRODUCT_CODE,
       vigencyCode: cfg.SANCOR_VIGENCY_CODE,

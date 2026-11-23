@@ -39,7 +39,12 @@ export interface VehicleCatalogProvider {
   getBrands(year?: number): Promise<string[]>;
   getModels(brand: string, year?: number): Promise<string[]>;
   getVersions(brand: string, model: string, year?: number): Promise<VehicleVersionOption[]>;
-  search(query: string, year?: number, limit?: number): Promise<VehicleVersionOption[]>;
+  search(
+    query: string,
+    year?: number,
+    limit?: number,
+    preferredYear?: number
+  ): Promise<VehicleVersionOption[]>;
   resolveVehicle(params: {
     brand?: string;
     model?: string;

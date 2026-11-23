@@ -122,7 +122,7 @@ export interface LeadIntentPayload {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
-  timeout: 15_000,
+  timeout: 30_000,
 });
 
 export function extractApiErrorMessage(error: unknown): string {
@@ -149,13 +149,14 @@ export function extractApiErrorMessage(error: unknown): string {
 }
 
 export const fetchCatalogMeta = async (): Promise<CatalogMeta> => {
-  const response = await api.get<CatalogMeta>('/catalog/meta');
+  const response = await api.get<CatalogMeta>('/catalog/meta', { timeout: 45_000 });
   return response.data;
 };
 
 export const fetchBrands = async (year?: number): Promise<string[]> => {
   const response = await api.get<{ brands: string[] }>('/catalog/brands', {
     params: year ? { year } : undefined,
+    timeout: 45_000,
   });
   return response.data.brands;
 };
@@ -180,10 +181,10 @@ export const fetchVersions = async (
 
 export const searchVehicles = async (
   query: string,
-  year?: number
+  preferredYear?: number
 ): Promise<VehicleVersionOption[]> => {
   const response = await api.get<{ results: VehicleVersionOption[] }>('/catalog/search', {
-    params: { q: query, ...(year ? { year } : {}), limit: 8 },
+    params: { q: query, ...(preferredYear ? { preferredYear } : {}), limit: 8 },
   });
   return response.data.results;
 };

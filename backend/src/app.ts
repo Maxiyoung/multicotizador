@@ -54,8 +54,17 @@ export function createApp(options: CreateAppOptions = {}): Express {
     message: { error: 'Alcanzaste el límite de cotizaciones. Intentá de nuevo en 15 minutos.' },
   });
 
+  const leadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiados intentos de contacto. Intentá nuevamente en unos minutos.' },
+  });
+
   app.use('/api/', generalLimiter);
   app.use('/api/quotes', quoteLimiter);
+  app.use('/api/leads', leadLimiter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

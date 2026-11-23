@@ -20,7 +20,8 @@ export function createQuoteController(orchestrator: OrchestratorService) {
     try {
       const input = { ...parsed.data };
 
-      // 1. Si no vino infoAutoCode (carga manual o bot), intentamos resolverlo automáticamente
+      // 1. Si no vino infoAutoCode (carga manual), solo auto-enlazamos si hay coincidencia prácticamente exacta
+      //    (>= 0.96) para evitar cotizar silenciosamente una versión distinta a la ingresada por el usuario.
       if (!input.infoAutoCode) {
         const resolution = await catalogService.resolveVehicle({
           brand: input.brand,
@@ -28,7 +29,7 @@ export function createQuoteController(orchestrator: OrchestratorService) {
           version: input.version,
           year: input.year,
         });
-        if (resolution.resolved && resolution.bestMatch) {
+        if (resolution.resolved && resolution.confidence >= 0.96 && resolution.bestMatch) {
           input.infoAutoCode = resolution.bestMatch.infoAutoCode;
           input.vehicleValue = input.vehicleValue ?? resolution.bestMatch.estimatedValue;
           logger.info('quote.vehicle_auto_resolved', {
@@ -55,6 +56,16 @@ export function createQuoteController(orchestrator: OrchestratorService) {
       }
 
       const results = await orchestrator.calculateAllQuotes(input);
+
+      if (results.quotes.length === 0 && results.failedProviders.length > 0) {
+        res.status(503).json({
+          error: `No pudimos obtener respuesta de ${results.failedProviders.join(', ')} en este momento. Intentá nuevamente en unos segundos.`,
+          failedProviders: results.failedProviders,
+          providerStatuses: results.providerStatuses,
+        });
+        return;
+      }
+
       res.json(results);
     } catch (error) {
       logger.error('quote.controller_failed', error);
